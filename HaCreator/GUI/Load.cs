@@ -21,13 +21,21 @@ namespace HaCreator.GUI
 {
     public partial class Load : System.Windows.Forms.Form
     {
-        public bool usebasepng = false;
-        public int bufferzone = 100;
-        private MultiBoard multiBoard;
-        private System.Windows.Controls.TabControl Tabs;
-        private System.Windows.RoutedEventHandler[] rightClickHandler;
+        private readonly MultiBoard multiBoard;
+        private readonly System.Windows.Controls.TabControl Tabs;
+        private readonly System.Windows.RoutedEventHandler[] rightClickHandler;
 
-        public Load(MultiBoard board, System.Windows.Controls.TabControl Tabs, System.Windows.RoutedEventHandler[] rightClickHandler)
+        private readonly string defaultMapNameFilter;
+
+        /// <summary>
+        /// 
+        /// </summary>
+        /// <param name="board"></param>
+        /// <param name="Tabs"></param>
+        /// <param name="rightClickHandler"></param>
+        /// <param name="defaultMapNameFilter">The default text to set for the map name filter</param>
+        public Load(MultiBoard board, System.Windows.Controls.TabControl Tabs, System.Windows.RoutedEventHandler[] rightClickHandler,
+            string defaultMapNameFilter = null)
         {
             InitializeComponent();
 
@@ -35,6 +43,7 @@ namespace HaCreator.GUI
             this.multiBoard = board;
             this.Tabs = Tabs;
             this.rightClickHandler = rightClickHandler;
+            this.defaultMapNameFilter = defaultMapNameFilter;
 
             this.searchBox.TextChanged += this.mapBrowser.searchBox_TextChanged;
         }
@@ -56,9 +65,18 @@ namespace HaCreator.GUI
                     break;
             }
             this.mapBrowser.InitializeMaps(true);
+
+            // after loading
+            if (defaultMapNameFilter != null)
+            {
+                this.searchBox.Focus();
+                this.searchBox.Text = defaultMapNameFilter;
+
+                this.mapBrowser.searchBox_TextChanged(this.searchBox, null);
+            }
         }
 
-        private void selectionChanged(object sender, EventArgs e)
+        private void SelectionChanged(object sender, EventArgs e)
         {
             if (HAMSelect.Checked)
             {
@@ -89,7 +107,7 @@ namespace HaCreator.GUI
             }
         }
 
-        private void browseXML_Click(object sender, EventArgs e)
+        private void BrowseXML_Click(object sender, EventArgs e)
         {
             OpenFileDialog dialog = new OpenFileDialog();
             dialog.Title = "Select XML to load...";
@@ -102,7 +120,7 @@ namespace HaCreator.GUI
             loadButton.Enabled = true;
         }
 
-        private void browseHAM_Click(object sender, EventArgs e)
+        private void BrowseHAM_Click(object sender, EventArgs e)
         {
             OpenFileDialog dialog = new OpenFileDialog();
             dialog.Title = "Select Map to load...";
@@ -115,14 +133,13 @@ namespace HaCreator.GUI
             loadButton.Enabled = true;
         }
 
-        private void loadButton_Click(object sender, EventArgs e)
+        private void LoadButton_Click(object sender, EventArgs e)
         {
             //Hide();
             WaitWindow ww = new WaitWindow("Loading...");
             ww.Show();
             Application.DoEvents();
 
-            MapLoader loader = new MapLoader();
             WzImage mapImage = null;
             int mapid = -1;
             string mapName = null, streetName = "", categoryName = "";
@@ -131,7 +148,7 @@ namespace HaCreator.GUI
 
             if (HAMSelect.Checked)
             {
-                loader.CreateMapFromHam(multiBoard, Tabs, File.ReadAllText(HAMBox.Text), rightClickHandler);
+                MapLoader.CreateMapFromHam(multiBoard, Tabs, File.ReadAllText(HAMBox.Text), rightClickHandler);
                 DialogResult = DialogResult.OK;
                 ww.EndWait();
                 Close();
@@ -153,6 +170,9 @@ namespace HaCreator.GUI
             }
             else if (WZSelect.Checked)
             {
+                if (mapBrowser.SelectedItem == null)
+                    return; // racing event
+
                 string selectedName = mapBrowser.SelectedItem;
 
                 if (selectedName.StartsWith("MapLogin")) // MapLogin, MapLogin1, MapLogin2, MapLogin3
@@ -181,13 +201,14 @@ namespace HaCreator.GUI
                     categoryName = WzInfoTools.GetMapCategoryName(strMapProp);
                 }
             }
-            loader.CreateMapFromImage(mapid, mapImage, mapName, streetName, categoryName, strMapProp, Tabs, multiBoard, rightClickHandler);
+            MapLoader.CreateMapFromImage(mapid, mapImage, mapName, streetName, categoryName, strMapProp, Tabs, multiBoard, rightClickHandler);
+
             DialogResult = DialogResult.OK;
             ww.EndWait();
             Close();
         }
 
-        private void mapBrowser_SelectionChanged()
+        private void MapBrowser_SelectionChanged()
         {
             loadButton.Enabled = mapBrowser.LoadAvailable;
         }
@@ -200,7 +221,7 @@ namespace HaCreator.GUI
             }
             else if (e.KeyCode == Keys.Enter)
             {
-                loadButton_Click(null, null);
+                LoadButton_Click(null, null);
             }
         }
 

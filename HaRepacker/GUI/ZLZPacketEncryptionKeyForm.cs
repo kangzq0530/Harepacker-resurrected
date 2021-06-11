@@ -1,4 +1,5 @@
-﻿using System;
+﻿using HaSharedLibrary;
+using System;
 using System.Collections.Generic;
 using System.ComponentModel;
 using System.Data;
@@ -9,7 +10,6 @@ using System.Runtime.InteropServices;
 using System.Text;
 using System.Threading.Tasks;
 using System.Windows.Forms;
-using Win32;
 
 namespace HaRepacker.GUI
 {
@@ -95,7 +95,7 @@ namespace HaRepacker.GUI
         private void ShowKey(IntPtr module)
         {
             const int KeyPos = 0x14020;
-            const int KeyGen = 0x1340;
+            //const int KeyGen = 0x1340;
 
             // OdinMS format
             StringBuilder sb = new StringBuilder();

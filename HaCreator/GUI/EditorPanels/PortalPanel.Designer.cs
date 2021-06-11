@@ -1,4 +1,6 @@
-﻿namespace HaCreator.GUI.EditorPanels
+﻿using HaCreator.CustomControls;
+
+namespace HaCreator.GUI.EditorPanels
 {
     partial class PortalPanel
     {
@@ -28,7 +30,7 @@
         /// </summary>
         private void InitializeComponent()
         {
-            this.portalImageContainer = new HaCreator.ThirdParty.ThumbnailFlowLayoutPanel();
+            this.portalImageContainer = new ThumbnailFlowLayoutPanel();
             this.SuspendLayout();
             // 
             // portalImageContainer
@@ -36,10 +38,12 @@
             this.portalImageContainer.AutoScroll = true;
             this.portalImageContainer.BackColor = System.Drawing.Color.White;
             this.portalImageContainer.Dock = System.Windows.Forms.DockStyle.Fill;
+            this.portalImageContainer.FlowDirection = System.Windows.Forms.FlowDirection.TopDown;
             this.portalImageContainer.Location = new System.Drawing.Point(0, 0);
             this.portalImageContainer.Name = "portalImageContainer";
             this.portalImageContainer.Size = new System.Drawing.Size(284, 658);
             this.portalImageContainer.TabIndex = 2;
+            this.portalImageContainer.WrapContents = false;
             // 
             // PortalPanel
             // 
@@ -55,6 +59,6 @@
 
         #endregion
 
-        private ThirdParty.ThumbnailFlowLayoutPanel portalImageContainer;
+        private ThumbnailFlowLayoutPanel portalImageContainer;
     }
 }

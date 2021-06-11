@@ -73,9 +73,9 @@ namespace HaCreator.GUI
         {
             // helper classes
             handler = new InputHandler(multiBoard);
-            hcsm = new HaCreatorStateManager(multiBoard, ribbon, tabControl1, handler);
-            hcsm.CloseRequested += hcsm_CloseRequested;
-            hcsm.FirstMapLoaded += hcsm_FirstMapLoaded;
+            hcsm = new HaCreatorStateManager(multiBoard, ribbon, tabControl1, handler, textblock_CursorX, textblock_CursorY, textblock_RCursorX, textblock_RCursorY, textblock_selectedItem);
+            hcsm.CloseRequested += Hcsm_CloseRequested;
+            hcsm.FirstMapLoaded += Hcsm_FirstMapLoaded;
 
             tilePanel.Initialize(hcsm);
             objPanel.Initialize(hcsm);
@@ -85,7 +85,9 @@ namespace HaCreator.GUI
             commonPanel.Initialize(hcsm);
 
             if (!hcsm.backupMan.AttemptRestore())
+            {
                 hcsm.LoadMap(new Load(multiBoard, tabControl1, hcsm.MakeRightClickHandler()));
+            }
         }
 
         /// <summary>
@@ -103,12 +105,12 @@ namespace HaCreator.GUI
             }
         }
 
-        void hcsm_CloseRequested()
+        void Hcsm_CloseRequested()
         {
             Close();
         }
 
-        void hcsm_FirstMapLoaded()
+        void Hcsm_FirstMapLoaded()
         {
             WindowState = WindowState.Maximized;
         }

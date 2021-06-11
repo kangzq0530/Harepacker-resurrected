@@ -95,7 +95,7 @@ namespace MapleLib.WzLib
                             fieldInfo.SetValue(null, InfoTool.GetString(settingProp));
                             break;
                         case "System.Drawing.Bitmap":
-                            fieldInfo.SetValue(null, ((WzCanvasProperty)settingProp).PngProperty.GetPNG(false));
+                            fieldInfo.SetValue(null, ((WzCanvasProperty)settingProp).PngProperty.GetImage(false));
                             break;
                         default:
                             throw new Exception("unrecognized setting type");
@@ -215,24 +215,26 @@ namespace MapleLib.WzLib
                 }
         }
 
-        public void Load()
+        /// <summary>
+        /// Load UserSettings and ApplicationSettings
+        /// </summary>
+        public void LoadSettings()
         {
             if (File.Exists(wzPath))
             {
-                WzFile wzFile = new WzFile(wzPath, 1337, WzMapleVersion.CLASSIC);
-                try
+                using (WzFile wzFile = new WzFile(wzPath, 1337, WzMapleVersion.CLASSIC))
                 {
-                    string parseErrorMessage = string.Empty;
-                    bool success = wzFile.ParseWzFile(out parseErrorMessage);
+                    try
+                    {
+                        WzFileParseStatus parseStatus = wzFile.ParseWzFile();
 
-                    ExtractSettingsImage((WzImage)wzFile["UserSettings.img"], userSettingsType);
-                    ExtractSettingsImage((WzImage)wzFile["ApplicationSettings.img"], appSettingsType);
-                    wzFile.Dispose();
-                }
-                catch
-                {
-                    wzFile.Dispose();
-                    throw;
+                        ExtractSettingsImage((WzImage)wzFile["UserSettings.img"], userSettingsType);
+                        ExtractSettingsImage((WzImage)wzFile["ApplicationSettings.img"], appSettingsType);
+                    }
+                    catch
+                    {
+                        throw;
+                    }
                 }
             }
         }
@@ -245,8 +247,7 @@ namespace MapleLib.WzLib
             {
                 wzFile = new WzFile(wzPath, 1337, WzMapleVersion.CLASSIC);
 
-                string parseErrorMessage = string.Empty;
-                bool success = wzFile.ParseWzFile(out parseErrorMessage);
+                WzFileParseStatus parseStatus = wzFile.ParseWzFile();
             }
             else
             {

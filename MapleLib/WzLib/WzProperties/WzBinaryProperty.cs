@@ -26,9 +26,9 @@ using System.Runtime.Serialization;
 
 namespace MapleLib.WzLib.WzProperties
 {
-    public enum WzSoundPropertyType
+    public enum WzBinaryPropertyType
     {
-        Binary,
+        Raw, // could be anything.. 
         MP3,
         WAV,
     }
@@ -130,6 +130,11 @@ namespace MapleLib.WzLib.WzProperties
         {
             get { return wavFormat != null ? wavFormat.SampleRate : 0; }
         }
+        public WaveFormat WavFormat
+        {
+            get { return wavFormat; }
+            private set { }
+        }
         /// <summary>
         /// BPS of the mp3 file
         /// </summary>
@@ -159,20 +164,12 @@ namespace MapleLib.WzLib.WzProperties
             ParseWzSoundPropertyHeader();
 
             //sound file offs
-            offs = reader.BaseStream.Position;
+            this.offs = reader.BaseStream.Position;
             if (parseNow)
                 mp3bytes = reader.ReadBytes(soundDataLen);
             else
                 reader.BaseStream.Position += soundDataLen;
         }
-
-        /*public WzSoundProperty(string name)
-        {
-            this.name = name;
-            this.len_ms = 0;
-            this.header = null;
-            this.mp3bytes = null;
-        }*/
 
         /// <summary>
         /// Creates a WzSoundProperty with the specified name and data from another WzSoundProperty Object
@@ -246,7 +243,7 @@ namespace MapleLib.WzLib.WzProperties
             this.mp3bytes = File.ReadAllBytes(file);
         }
 
-        public static bool memcmp(byte[] a, byte[] b, int n)
+        public static bool Memcmp(byte[] a, byte[] b, int n)
         {
             for (int i = 0; i < n; i++)
             {
@@ -266,7 +263,7 @@ namespace MapleLib.WzLib.WzProperties
             return hex.ToString();
         }
 
-        public void RebuildHeader()
+        private void RebuildHeader()
         {
             using (BinaryWriter bw = new BinaryWriter(new MemoryStream()))
             {
@@ -337,7 +334,6 @@ namespace MapleLib.WzLib.WzProperties
                 return;
 
             WaveFormat wavFmt = BytesToStruct<WaveFormat>(wavHeader);
-
             if (Marshal.SizeOf<WaveFormat>() + wavFmt.ExtraSize != wavHeader.Length)
             {
                 //try decrypt

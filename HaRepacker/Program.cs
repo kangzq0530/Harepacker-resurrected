@@ -20,11 +20,7 @@ namespace HaRepacker
 {
     public static class Program
     {
-        public const string Version = "4.2.4";
-        public const int Version_ = 424;
-
-
-        public static WzFileManager WzMan = new WzFileManager();
+        public static WzFileManager WzFileManager = new WzFileManager();
         public static NamedPipeServerStream pipe;
         public static Thread pipeThread;
 
@@ -74,6 +70,11 @@ namespace HaRepacker
             EndApplication(true, true);
         }
 
+        /// <summary>
+        /// Allows customisation of display text during runtime..
+        /// </summary>
+        /// <param name="ci"></param>
+        /// <returns></returns>
         private static CultureInfo GetMainCulture(CultureInfo ci)
         {
             if (!ci.Name.Contains("-"))
@@ -141,7 +142,6 @@ namespace HaRepacker
             bool loaded = _ConfigurationManager.Load();
             if (!loaded)
             {
-                Warning.Error(HaRepacker.Properties.Resources.ProgramLoadSettingsError);
                 return true;
             }
             bool firstRun = Program.ConfigurationManager.ApplicationSettings.FirstRun;
@@ -171,7 +171,7 @@ namespace HaRepacker
             }
             if (disposeFiles)
             {
-                WzMan.Terminate();
+                WzFileManager.Terminate();
             }
             _ConfigurationManager.Save();
         }

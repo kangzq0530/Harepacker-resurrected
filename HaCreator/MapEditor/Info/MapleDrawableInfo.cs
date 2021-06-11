@@ -4,6 +4,7 @@
 * License, v. 2.0. If a copy of the MPL was not distributed with this
 * file, You can obtain one at http://mozilla.org/MPL/2.0/. */
 
+using HaSharedLibrary.Util;
 using MapleLib.WzLib;
 using Microsoft.Xna.Framework.Graphics;
 using System;
@@ -31,19 +32,27 @@ namespace HaCreator.MapEditor.Info
             this.parentObject = parentObject;
         }
 
-        public void CreateTexture(GraphicsDevice device)
-        {
-            if (image!=null && image.Width == 1 && image.Height == 1)
-                texture = BoardItem.TextureFromBitmap(device, global::HaCreator.Properties.Resources.placeholder);
-            else
-                texture = BoardItem.TextureFromBitmap(device, image);
-        }
-
+        /// <summary>
+        /// Create an instance of BoardItem from editor panels
+        /// </summary>
+        /// <param name="layer"></param>
+        /// <param name="board"></param>
+        /// <param name="x"></param>
+        /// <param name="y"></param>
+        /// <param name="z"></param>
+        /// <param name="flip"></param>
+        /// <returns></returns>
         public abstract BoardItem CreateInstance(Layer layer, Board board, int x, int y, int z, bool flip);
 
         public virtual Texture2D GetTexture(SpriteBatch sprite)
         {
-            if (texture == null) CreateTexture(sprite.GraphicsDevice);
+            if (texture == null)
+            {
+                if (image != null && image.Width == 1 && image.Height == 1)
+                    texture = global::HaCreator.Properties.Resources.placeholder.ToTexture2D(sprite.GraphicsDevice);
+                else
+                    texture = image.ToTexture2D(sprite.GraphicsDevice);
+            }
             return texture;
         }
 

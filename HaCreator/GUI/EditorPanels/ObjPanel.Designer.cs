@@ -1,4 +1,6 @@
-﻿namespace HaCreator.GUI.EditorPanels
+﻿using HaCreator.CustomControls;
+
+namespace HaCreator.GUI.EditorPanels
 {
     partial class ObjPanel
     {
@@ -34,7 +36,7 @@
             this.objL0ListBox = new System.Windows.Forms.ListBox();
             this.splitContainer5 = new System.Windows.Forms.SplitContainer();
             this.objL1ListBox = new System.Windows.Forms.ListBox();
-            this.objImagesContainer = new HaCreator.ThirdParty.ThumbnailFlowLayoutPanel();
+            this.objImagesContainer = new ThumbnailFlowLayoutPanel();
             ((System.ComponentModel.ISupportInitialize)(this.splitContainer3)).BeginInit();
             this.splitContainer3.Panel1.SuspendLayout();
             this.splitContainer3.Panel2.SuspendLayout();
@@ -138,10 +140,12 @@
             this.objImagesContainer.AutoScroll = true;
             this.objImagesContainer.BackColor = System.Drawing.Color.White;
             this.objImagesContainer.Dock = System.Windows.Forms.DockStyle.Fill;
+            this.objImagesContainer.FlowDirection = System.Windows.Forms.FlowDirection.TopDown;
             this.objImagesContainer.Location = new System.Drawing.Point(0, 0);
             this.objImagesContainer.Name = "objImagesContainer";
             this.objImagesContainer.Size = new System.Drawing.Size(284, 394);
             this.objImagesContainer.TabIndex = 0;
+            this.objImagesContainer.WrapContents = false;
             // 
             // ObjPanel
             // 
@@ -175,6 +179,6 @@
         private System.Windows.Forms.ListBox objL0ListBox;
         private System.Windows.Forms.SplitContainer splitContainer5;
         private System.Windows.Forms.ListBox objL1ListBox;
-        private ThirdParty.ThumbnailFlowLayoutPanel objImagesContainer;
+        private ThumbnailFlowLayoutPanel objImagesContainer;
     }
 }

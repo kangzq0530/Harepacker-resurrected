@@ -160,6 +160,16 @@ namespace HaRepacker.Properties {
         /// <summary>
         ///   Looks up a localized resource of type System.Drawing.Bitmap.
         /// </summary>
+        public static System.Drawing.Bitmap copyFile {
+            get {
+                object obj = ResourceManager.GetObject("copyFile", resourceCulture);
+                return ((System.Drawing.Bitmap)(obj));
+            }
+        }
+        
+        /// <summary>
+        ///   Looks up a localized resource of type System.Drawing.Bitmap.
+        /// </summary>
         public static System.Drawing.Bitmap delete {
             get {
                 object obj = ResourceManager.GetObject("delete", resourceCulture);
@@ -631,15 +641,6 @@ namespace HaRepacker.Properties {
         }
         
         /// <summary>
-        ///   Looks up a localized string similar to This item is not an animation..
-        /// </summary>
-        public static string MainAnimationFail {
-            get {
-                return ResourceManager.GetString("MainAnimationFail", resourceCulture);
-            }
-        }
-        
-        /// <summary>
         ///   Looks up a localized string similar to Cannot insert selected object into this type of wz node..
         /// </summary>
         public static string MainCannotInsertToNode {
@@ -876,6 +877,24 @@ namespace HaRepacker.Properties {
         }
         
         /// <summary>
+        ///   Looks up a localized string similar to Would you like to include the base64 data of image, mp3 &amp; other binary data in the json?.
+        /// </summary>
+        public static string MainWzExportJson_IncludeBase64 {
+            get {
+                return ResourceManager.GetString("MainWzExportJson_IncludeBase64", resourceCulture);
+            }
+        }
+        
+        /// <summary>
+        ///   Looks up a localized string similar to Data.
+        /// </summary>
+        public static string MainWzExportJson_IncludeBase64_Title {
+            get {
+                return ResourceManager.GetString("MainWzExportJson_IncludeBase64_Title", resourceCulture);
+            }
+        }
+        
+        /// <summary>
         ///   Looks up a localized resource of type System.Drawing.Bitmap.
         /// </summary>
         public static System.Drawing.Bitmap map {
@@ -966,6 +985,16 @@ namespace HaRepacker.Properties {
         /// <summary>
         ///   Looks up a localized resource of type System.Drawing.Bitmap.
         /// </summary>
+        public static System.Drawing.Bitmap pasteFile {
+            get {
+                object obj = ResourceManager.GetObject("pasteFile", resourceCulture);
+                return ((System.Drawing.Bitmap)(obj));
+            }
+        }
+        
+        /// <summary>
+        ///   Looks up a localized resource of type System.Drawing.Bitmap.
+        /// </summary>
         public static System.Drawing.Bitmap Pause {
             get {
                 object obj = ResourceManager.GetObject("Pause", resourceCulture);
@@ -990,15 +1019,6 @@ namespace HaRepacker.Properties {
             get {
                 object obj = ResourceManager.GetObject("play_", resourceCulture);
                 return ((System.Drawing.Bitmap)(obj));
-            }
-        }
-        
-        /// <summary>
-        ///   Looks up a localized string similar to Could not load settings file, make sure it is not in use. If it is not, delete it and try again..
-        /// </summary>
-        public static string ProgramLoadSettingsError {
-            get {
-                return ResourceManager.GetString("ProgramLoadSettingsError", resourceCulture);
             }
         }
         
@@ -1190,6 +1210,16 @@ namespace HaRepacker.Properties {
         public static string SelectXml {
             get {
                 return ResourceManager.GetString("SelectXml", resourceCulture);
+            }
+        }
+        
+        /// <summary>
+        ///   Looks up a localized resource of type System.Drawing.Bitmap.
+        /// </summary>
+        public static System.Drawing.Bitmap sort {
+            get {
+                object obj = ResourceManager.GetObject("sort", resourceCulture);
+                return ((System.Drawing.Bitmap)(obj));
             }
         }
         

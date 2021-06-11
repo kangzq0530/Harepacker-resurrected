@@ -6,9 +6,11 @@
 
 using HaCreator.CustomControls;
 using HaCreator.MapEditor;
+using HaSharedLibrary.Render.DX;
 using MapleLib.WzLib.WzStructure.Data;
 using System;
 using System.Collections.Generic;
+using System.Collections.ObjectModel;
 using System.ComponentModel;
 using System.Linq;
 using System.Text;
@@ -33,6 +35,13 @@ namespace HaCreator.GUI
         public HaRibbon()
         {
             InitializeComponent();
+
+#if DEBUG
+            debugTab.Visibility = Visibility.Visible;
+#else
+            debugTab.Visibility = Visibility.Collapsed;
+#endif
+
             this.PreviewMouseWheel += HaRibbon_PreviewMouseWheel;
         }
 
@@ -53,7 +62,7 @@ namespace HaCreator.GUI
         private int actualLayerIndex = 0;
         private int actualPlatform = 0;
         private int changingIndexCnt = 0;
-        private List<Layer> layers = null;
+        private ReadOnlyCollection<Layer> layers = null;
         private bool hasMinimap = false;
 
         private void Ribbon_Loaded(object sender, RoutedEventArgs e)
@@ -63,6 +72,30 @@ namespace HaCreator.GUI
             {
                 reducedHeight = (int)child.RowDefinitions[0].ActualHeight;
                 child.RowDefinitions[0].Height = new GridLength(0);
+            }
+
+            // Load map simulator resolutions
+            foreach (RenderResolution val in Enum.GetValues(typeof(RenderResolution)))
+            {
+                ComboBoxItem comboBoxItem = new ComboBoxItem
+                {
+                    Tag = val,
+                    Content = RenderResolutionExtensions.ToReadableString(val)
+                };
+
+                comboBox_Resolution.Items.Add(comboBoxItem);
+            }
+            //comboBox_Resolution.DisplayMemberPath = "Content";
+
+            int i = 0;
+            foreach (ComboBoxItem item in comboBox_Resolution.Items)
+            {
+                if ((RenderResolution)item.Tag == UserSettings.SimulateResolution)
+                {
+                    comboBox_Resolution.SelectedIndex = i;
+                    break;
+                }
+                i++;
             }
         }
 
@@ -120,6 +153,13 @@ namespace HaCreator.GUI
             new InputGestureCollection() { });
         public static readonly RoutedUICommand Export = new RoutedUICommand("Export", "Export", typeof(HaRibbon),
             new InputGestureCollection() { });
+        public static readonly RoutedUICommand PhysicsEdit = new RoutedUICommand("PhysicsEdit", "PhysicsEdit", typeof(HaRibbon),
+            new InputGestureCollection() { });
+
+        #region Debug Items
+        public static readonly RoutedUICommand ShowMapProperties = new RoutedUICommand("ShowMapProperties", "ShowMapProperties", typeof(HaRibbon),
+            new InputGestureCollection() { });
+        #endregion
 
         private void AlwaysExecute(object sender, CanExecuteRoutedEventArgs e)
         {
@@ -244,6 +284,30 @@ namespace HaCreator.GUI
             if (ExportClicked != null)
                 ExportClicked.Invoke();
         }
+
+        /// <summary>
+        /// Edit map physics
+        /// </summary>
+        /// <param name="sender"></param>
+        /// <param name="e"></param>
+        private void PhysicsEdit_Executed(object sender, ExecutedRoutedEventArgs e)
+        {
+            if (MapPhysicsClicked != null)
+                MapPhysicsClicked.Invoke();
+        }
+
+
+        /// <summary>
+        /// Show map 'info' properties clicked
+        /// </summary>
+        /// <param name="sender"></param>
+        /// <param name="e"></param>
+        private void ShowMapProperties_Executed(object sender, ExecutedRoutedEventArgs e)
+        {
+            if (ShowMapPropertiesClicked != null)
+                ShowMapPropertiesClicked.Invoke();
+        }
+
 
         #region Layer UI
         private void LayerUp_Executed(object sender, ExecutedRoutedEventArgs e)
@@ -401,7 +465,7 @@ namespace HaCreator.GUI
             endInternalEditing();
         }
 
-        public void SetLayers(List<Layer> layers)
+        public void SetLayers(ReadOnlyCollection<Layer> layers)
         {
             beginInternalEditing();
 
@@ -427,7 +491,7 @@ namespace HaCreator.GUI
             endInternalEditing();
         }
 
-        #endregion
+#endregion
 
         public delegate void EmptyEvent();
         public delegate void ViewToggleEvent(bool? tiles, bool? objs, bool? npcs, bool? mobs, bool? reactors, bool? portals, bool? footholds, bool? ropes, bool? chairs, bool? tooltips, bool? backgrounds, bool? misc);
@@ -456,6 +520,8 @@ namespace HaCreator.GUI
         public event EmptyEvent ExportClicked;
         public event EmptyEvent NewPlatformClicked;
         public event EmptyEvent UserObjsClicked;
+        public event EmptyEvent MapPhysicsClicked;
+        public event EmptyEvent ShowMapPropertiesClicked;
         public event EventHandler<System.Windows.Forms.KeyEventArgs> RibbonKeyDown;
 
         public void SetVisibilityCheckboxes(bool? tiles, bool? objs, bool? npcs, bool? mobs, bool? reactors, bool? portals, bool? footholds, bool? ropes, bool? chairs, bool? tooltips, bool? backgrounds, bool? misc)
@@ -478,7 +544,6 @@ namespace HaCreator.GUI
         {
             viewTab.IsEnabled = enabled;
             toolsTab.IsEnabled = enabled;
-            statTab.IsEnabled = enabled;
             saveBtn.IsEnabled = enabled;
             exportBtn.IsEnabled = enabled;
             //resetLayerBoxIfNeeded();
@@ -491,17 +556,6 @@ namespace HaCreator.GUI
             snapBtn.IsChecked = snap;
             randomBtn.IsChecked = random;
             infomodeBtn.IsChecked = infomode;
-        }
-
-        public void SetMousePos(int virtualX, int virtualY, int physicalX, int physicalY)
-        {
-            this.virtualPos.Text = "X: " + virtualX.ToString() + "\nY: " + virtualY.ToString();
-            this.physicalPos.Text = "X: " + physicalX.ToString() + "\nY: " + physicalY.ToString();
-        }
-
-        public void SetItemDesc(string desc)
-        {
-            itemDesc.Text = desc;
         }
 
         public void SetHasMinimap(bool hasMinimap)
@@ -541,6 +595,20 @@ namespace HaCreator.GUI
             {
                 RibbonKeyDown.Invoke(this, new System.Windows.Forms.KeyEventArgs((System.Windows.Forms.Keys)KeyInterop.VirtualKeyFromKey(e.Key)));
             }
+        }
+
+        /// <summary>
+        /// On simulator preview resolution changed
+        /// </summary>
+        /// <param name="sender"></param>
+        /// <param name="e"></param>
+        private void comboBox_Resolution_SelectionChanged(object sender, SelectionChangedEventArgs e)
+        {
+            if (comboBox_Resolution.SelectedItem == null)
+                return;
+
+            RenderResolution selectedItem = (RenderResolution) (comboBox_Resolution.SelectedItem as ComboBoxItem).Tag;
+            UserSettings.SimulateResolution = selectedItem;  // combo box selection. 800x600, 1024x768, 1280x720, 1920x1080
         }
     }
 }

@@ -9,7 +9,7 @@ using System.Collections.Generic;
 using System.Drawing;
 using MapleLib.WzLib.WzProperties;
 using MapleLib.WzLib;
-using SharpApng;
+using HaSharedLibrary.SharpApng;
 
 namespace HaRepacker
 {
@@ -18,6 +18,40 @@ namespace HaRepacker
     /// </summary>
     public static class AnimationBuilder
     {
+        #region Extras
+        /// <summary>
+        /// Is an animation object
+        /// </summary>
+        /// <param name="prop"></param>
+        /// <returns></returns>
+        public static bool IsValidAnimationWzObject(WzObject prop)
+        {
+            if (!(prop is WzSubProperty))
+                return false;
+
+            WzSubProperty castedProp = (WzSubProperty)prop;
+            List<WzCanvasProperty> props = new List<WzCanvasProperty>(castedProp.WzProperties.Count);
+            int foo;
+
+            foreach (WzImageProperty subprop in castedProp.WzProperties)
+            {
+                if (!(subprop is WzCanvasProperty))
+                    continue;
+                if (!int.TryParse(subprop.Name, out foo))
+                    return false;
+                props.Add((WzCanvasProperty)subprop);
+            }
+            if (props.Count < 2)
+                return false;
+
+            props.Sort(new Comparison<WzCanvasProperty>(AnimationBuilder.PropertySorter));
+            for (int i = 0; i < props.Count; i++)
+                if (i.ToString() != props[i].Name)
+                    return false;
+            return true;
+        }
+        #endregion
+
         private static Bitmap OptimizeBitmapTransparent(Bitmap source, WzVectorProperty origin, Point biggestPng, Point SmallestEmptySpace, Point MaximumMapEndingPts)
         {
             Point Size = new Point(biggestPng.X - SmallestEmptySpace.X, biggestPng.Y - SmallestEmptySpace.Y);
@@ -27,11 +61,12 @@ namespace HaRepacker
             return empty;
         }
 
-        public static int PropertySorter(WzCanvasProperty a, WzCanvasProperty b)
+        private static int PropertySorter(WzCanvasProperty a, WzCanvasProperty b)
         {
             int aIndex = 0;
             int bIndex = 0;
-            if (!int.TryParse(a.Name, out aIndex) || !int.TryParse(b.Name, out bIndex)) return 0;
+            if (!int.TryParse(a.Name, out aIndex) || !int.TryParse(b.Name, out bIndex)) 
+                return 0;
             return aIndex.CompareTo(bIndex);
         }
 
@@ -57,11 +92,11 @@ namespace HaRepacker
             List<WzCanvasProperty> sortedProps = new List<WzCanvasProperty>();
             foreach (WzImageProperty subprop in parent.WzProperties)
             {
-                if (subprop is WzCanvasProperty)
+                if (subprop is WzCanvasProperty property)
                 {
-                    sortedProps.Add((WzCanvasProperty)subprop);
-                    WzPngProperty png = ((WzCanvasProperty)subprop).PngProperty;
-                    System.Drawing.PointF origin = ((WzCanvasProperty)subprop).GetCanvasOriginPosition();
+                    sortedProps.Add(property);
+                    WzPngProperty png = property.PngProperty;
+                    System.Drawing.PointF origin = property.GetCanvasOriginPosition();
 
                     Point StartPoints = new Point(biggestPng.X - (int) origin.X, biggestPng.Y - (int)origin.Y);
                     Point PngMapppingEndingPts = new Point(StartPoints.X + png.Width, StartPoints.Y + png.Height);
@@ -84,47 +119,48 @@ namespace HaRepacker
                     Warning.Error(string.Format(Properties.Resources.AnimError, i.ToString()));
                     return;
                 }
-                Bitmap bmp = subprop.PngProperty.GetPNG(false);
+                Bitmap bmp = subprop.PngProperty.GetImage(false);
                 System.Drawing.PointF origin = subprop.GetCanvasOriginPosition();
                 bmpList.Add(OptimizeBitmapTransparent(bmp, new WzVectorProperty("", origin.X, origin.Y), biggestPng, SmallestEmptySpace, MaximumPngMappingEndingPts));
 
-                WzIntProperty delayProp = (WzIntProperty)subprop["delay"];
-                int delay = 100;
-                if (delayProp != null) delay = delayProp.Value;
-                delayList.Add(delay);
+                int? delay = subprop[WzCanvasProperty.AnimationDelayPropertyName]?.GetInt();
+                if (delay == null)
+                    delay = 100;
+
+                delayList.Add((int) delay);
             }
-            Apng apngBuilder = new Apng();
+            SharpApng apngBuilder = new SharpApng();
             if (apngFirstFrame)
             {
-                apngBuilder.AddFrame(new Frame(CreateIncompatibilityFrame(new Size(bmpList[0].Width, bmpList[0].Height)),1,1));
+                apngBuilder.AddFrame(new SharpApngFrame(CreateIncompatibilityFrame(new Size(bmpList[0].Width, bmpList[0].Height)),1,1));
             }
             for (int i = 0; i < bmpList.Count; i++)
             {
-                apngBuilder.AddFrame(new Frame(bmpList[i], getNumByDelay(delayList[i]), getDenByDelay(delayList[i])));
+                apngBuilder.AddFrame(new SharpApngFrame(bmpList[i], GetNumByDelay(delayList[i]), GetDenByDelay(delayList[i])));
             }
             apngBuilder.WriteApng(savePath, apngFirstFrame, true);
         }
 
-        private static int getNumByDelay(int delay)
+        private static int GetNumByDelay(int delay)
         {
             int num = delay;
             int den = 1000;
             while (num % 10 == 0 && num != 0)
             {
-                num = num / 10;
-                den = den / 10;
+                num /= 10;
+                den /= 10;
             }
             return num;
         }
 
-        private static int getDenByDelay(int delay)
+        private static int GetDenByDelay(int delay)
         {
             int num = delay;
             int den = 1000;
             while (num % 10 == 0 && num != 0)
             {
-                num = num / 10;
-                den = den / 10;
+                num /= 10;
+                den /= 10;
             }
             return den;
         }

@@ -18,22 +18,23 @@ using MapleLib.WzLib.WzProperties;
 using HaCreator.MapEditor;
 using MapleLib.WzLib.WzStructure;
 using MapleLib.WzLib.WzStructure.Data;
-using HaCreator.ThirdParty;
 using HaCreator.GUI.InstanceEditor;
+using MapleLib.WzLib.WzStructure.Data.MapStructure;
 
 namespace HaCreator.GUI
 {
     public partial class InfoEditor : EditorBase
     {
         public MapInfo info;
-        private MultiBoard multiBoard;
-        private Board board;
+        private readonly MultiBoard multiBoard;
+        private readonly Board board;
 
         public InfoEditor(Board board, MapInfo info, MultiBoard multiBoard)
         {
             InitializeComponent();
 
             this.board = board;
+            this.info = info;
             this.multiBoard = multiBoard;
 
             timeLimitEnable.Tag = timeLimit;
@@ -63,7 +64,6 @@ namespace HaCreator.GUI
             autoLieDetectorEnable.Tag = new Control[] { autoLieEnd, autoLieInterval, autoLieProp, autoLieStart };
             allowedItemsEnable.Tag = new Control[] { allowedItems, allowedItemsAdd, allowedItemsRemove };
 
-            this.info = info;
             this.fieldType.SelectedIndex = 0;
 
             xBox.Value = board.MapSize.X;
@@ -102,9 +102,11 @@ namespace HaCreator.GUI
             streetBox.Text = info.strStreetName;
             categoryBox.Text = info.strCategoryName;
             markBox.SelectedItem = info.mapMark;
-            if (info.returnMap == info.id) cannotReturnCBX.Checked = true;
+            if (info.returnMap == info.id) 
+                cannotReturnCBX.Checked = true;
             else returnBox.Text = info.returnMap.ToString();
-            if (info.forcedReturn == 999999999) returnHereCBX.Checked = true;
+            if (info.forcedReturn == 999999999) 
+                returnHereCBX.Checked = true;
             else forcedRet.Text = info.forcedReturn.ToString();
             mobRate.Value = (decimal)info.mobRate;
             //LoadOptionalInt(info.link, linkBox);
@@ -134,7 +136,7 @@ namespace HaCreator.GUI
                 helpBox.Text = info.help.Replace(@"\n", "\r\n");
             if (info.timeMob != null)
             {
-                MapInfo.TimeMob tMob = (MapInfo.TimeMob)info.timeMob;
+                TimeMob tMob = (TimeMob)info.timeMob;
                 summonMobEnable.Checked = true;
                 LoadOptionalInt(tMob.startHour, timedMobStart, timedMobEnable);
                 LoadOptionalInt(tMob.endHour, timedMobEnd, timedMobEnable);
@@ -143,7 +145,7 @@ namespace HaCreator.GUI
             }
             if (info.autoLieDetector != null)
             {
-                MapInfo.AutoLieDetector ald = (MapInfo.AutoLieDetector)info.autoLieDetector;
+                AutoLieDetector ald = (AutoLieDetector)info.autoLieDetector;
                 autoLieDetectorEnable.Checked = true;
                 autoLieStart.Value = ald.startHour;
                 autoLieEnd.Value = ald.endHour;
@@ -340,13 +342,13 @@ namespace HaCreator.GUI
 
                 if (helpEnable.Checked) info.help = helpBox.Text.Replace("\r\n", @"\n");
                 if (summonMobEnable.Checked)
-                    info.timeMob = new MapInfo.TimeMob(
+                    info.timeMob = new TimeMob(
                         GetOptionalInt(timedMobStart, timedMobEnable),
                         GetOptionalInt(timedMobEnd, timedMobEnable),
                         (int)timedMobId.Value,
                         timedMobMessage.Text.Replace("\r\n", @"\n"));
                 if (autoLieDetectorEnable.Checked)
-                    info.autoLieDetector = new MapInfo.AutoLieDetector(
+                    info.autoLieDetector = new AutoLieDetector(
                         (int)autoLieStart.Value,
                         (int)autoLieEnd.Value,
                         (int)autoLieInterval.Value,

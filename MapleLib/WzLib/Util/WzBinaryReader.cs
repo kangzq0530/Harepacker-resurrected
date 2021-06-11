@@ -166,7 +166,7 @@ namespace MapleLib.WzLib.Util
             uint offset = (uint)BaseStream.Position;
             offset = (offset - Header.FStart) ^ uint.MaxValue;
             offset *= Hash;
-            offset -= CryptoConstants.WZ_OffsetConstant;
+            offset -= MapleCryptoConstants.WZ_OffsetConstant;
             offset = WzTool.RotateLeft(offset, (byte)(offset & 0x1F));
             uint encryptedOffset = ReadUInt32();
             offset ^= encryptedOffset;
@@ -205,6 +205,14 @@ namespace MapleLib.WzLib.Util
             }
         }
 
+        #endregion
+
+        #region Overrides
+        public override void Close()
+        {
+            // debug here
+            base.Close();
+        }
         #endregion
     }
 }

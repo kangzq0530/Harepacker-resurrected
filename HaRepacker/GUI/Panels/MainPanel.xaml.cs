@@ -1,15 +1,19 @@
 ﻿using HaRepacker.Comparer;
 using HaRepacker.Converter;
 using HaRepacker.GUI.Input;
+using HaSharedLibrary.Render.DX;
+using HaSharedLibrary.GUI;
+using HaSharedLibrary.Util;
 using MapleLib.WzLib;
 using MapleLib.WzLib.Spine;
 using MapleLib.WzLib.WzProperties;
+using MapleLib.Converters;
 using Microsoft.Xna.Framework;
 using Spine;
 using System;
+using System.Linq;
 using System.Collections.Generic;
 using System.Drawing;
-using System.Linq;
 using System.Runtime.CompilerServices;
 using System.Text;
 using System.Threading;
@@ -25,6 +29,9 @@ using System.Windows.Navigation;
 using System.Windows.Shapes;
 using System.Windows.Threading;
 using static MapleLib.Configuration.UserSettings;
+using System.Reflection;
+using System.Text.RegularExpressions;
+using System.IO;
 
 namespace HaRepacker.GUI.Panels
 {
@@ -35,6 +42,7 @@ namespace HaRepacker.GUI.Panels
     {
         // Constants
         private const string FIELD_LIMIT_OBJ_NAME = "fieldLimit";
+        private const string FIELD_TYPE_OBJ_NAME = "fieldType";
         private const string PORTAL_NAME_OBJ_NAME = "pn";
 
         // Etc
@@ -61,7 +69,7 @@ namespace HaRepacker.GUI.Panels
                 DataTree.ForeColor = System.Drawing.Color.White;
             }
 
-            nameBox.Header = "Key";
+            nameBox.Header = "Name";
             textPropBox.Header = "Value";
             textPropBox.ButtonClicked += applyChangesButton_Click;
 
@@ -74,24 +82,25 @@ namespace HaRepacker.GUI.Panels
             System.Windows.Media.Animation.Storyboard sbb = (System.Windows.Media.Animation.Storyboard)(this.FindResource("Storyboard_Find_FadeIn"));
             sbb.Completed += Storyboard_Find_FadeIn_Completed;
 
-            // buttons
 
+            // buttons
             menuItem_Animate.Visibility = Visibility.Collapsed;
             menuItem_changeImage.Visibility = Visibility.Collapsed;
             menuItem_changeSound.Visibility = Visibility.Collapsed;
             menuItem_saveSound.Visibility = Visibility.Collapsed;
             menuItem_saveImage.Visibility = Visibility.Collapsed;
-            
+
+            textEditor.SaveButtonClicked += TextEditor_SaveButtonClicked;
             Loaded += MainPanelXAML_Loaded;
 
 
             isLoading = false;
         }
 
-
         private void MainPanelXAML_Loaded(object sender, RoutedEventArgs e)
         {
             this.fieldLimitPanel1.SetTextboxOnFieldLimitChange(textPropBox);
+            this.fieldTypePanel.SetTextboxOnFieldTypeChange(textPropBox);
         }
 
         #region Exported Fields
@@ -155,7 +164,6 @@ namespace HaRepacker.GUI.Panels
                 case System.Windows.Forms.Keys.Escape:
                     e.Handled = true;
                     e.SuppressKeyPress = true;
-                    StopCanvasAnimation();
                     break;
 
                 case System.Windows.Forms.Keys.Delete:
@@ -296,7 +304,7 @@ namespace HaRepacker.GUI.Panels
             {
                 WzCanvasProperty canvas = new WzCanvasProperty(bitmaps.Count == 1 ? name : (name + i));
                 WzPngProperty pngProperty = new WzPngProperty();
-                pngProperty.SetPNG(bmp);
+                pngProperty.SetImage(bmp);
                 canvas.PngProperty = pngProperty;
 
                 WzNode newInsertedNode = wzNode.AddObject(canvas, UndoRedoMan);
@@ -320,7 +328,10 @@ namespace HaRepacker.GUI.Panels
                 Warning.Error(Properties.Resources.MainCannotInsertToNode);
                 return;
             }
-            else if (!IntInputBox.Show(Properties.Resources.MainAddInt, out name, out value))
+            else if (!IntInputBox.Show(
+                Properties.Resources.MainAddInt,
+                "", 0,
+                out name, out value))
                 return;
             ((WzNode)target).AddObject(new WzIntProperty(name, (int)value), UndoRedoMan);
         }
@@ -461,7 +472,9 @@ namespace HaRepacker.GUI.Panels
                 Warning.Error(Properties.Resources.MainCannotInsertToNode);
                 return;
             }
-            else if (!IntInputBox.Show(Properties.Resources.MainAddShort, out name, out value))
+            else if (!IntInputBox.Show(Properties.Resources.MainAddShort,
+                "", 0,
+                out name, out value))
                 return;
             ((WzNode)target).AddObject(new WzShortProperty(name, (short)value), UndoRedoMan);
         }
@@ -503,6 +516,30 @@ namespace HaRepacker.GUI.Panels
         }
 
         /// <summary>
+        /// WzLuaProperty
+        /// </summary>
+        /// <param name="target"></param>
+        public void AddWzLuaPropertyToSelectedIndex(System.Windows.Forms.TreeNode target)
+        {
+ /*           string name;
+            string value;
+            if (!(target.Tag is WzDirectory) && !(target.Tag is WzFile))
+            {
+                Warning.Error(Properties.Resources.MainCannotInsertToNode);
+                return;
+            }
+            else if (!NameValueInputBox.Show(Properties.Resources.MainAddString, out name, out value))
+                return;
+
+            string propertyName = name;
+            if (!propertyName.EndsWith(".lua"))
+            {
+                propertyName += ".lua"; // it must end with .lua regardless
+            }
+            ((WzNode)target).AddObject(new WzImage(propertyName), UndoRedoMan);*/
+        }
+
+        /// <summary>
         /// Remove selected nodes
         /// </summary>
         public void PromptRemoveSelectedTreeNodes()
@@ -521,7 +558,7 @@ namespace HaRepacker.GUI.Panels
                 if (!(node.Tag is WzFile) && node.Parent != null)
                 {
                     actions.Add(UndoRedoManager.ObjectRemoved((WzNode)node.Parent, node));
-                    node.Delete();
+                    node.DeleteWzNode();
                 }
             UndoRedoMan.AddUndoBatch(actions);
         }
@@ -529,17 +566,13 @@ namespace HaRepacker.GUI.Panels
         /// <summary>
         /// Rename an individual node
         /// </summary>
-        public void PromptRenameSelectedTreeNode()
+        public void PromptRenameWzTreeNode(WzNode node)
         {
-            if (DataTree.SelectedNodes.Count != 1)
-            {
+            if (node == null)
                 return;
-            }
 
             string newName = "";
-            System.Windows.Forms.TreeNode currentSelectedNode = DataTree.SelectedNodes[0] as System.Windows.Forms.TreeNode;
-            WzNode wzNode = (WzNode)currentSelectedNode;
-
+            WzNode wzNode = node;
             if (RenameInputBox.Show(Properties.Resources.MainConfirmRename, wzNode.Text, out newName))
             {
                 wzNode.ChangeName(newName);
@@ -586,219 +619,39 @@ namespace HaRepacker.GUI.Panels
         #endregion
 
         #region Animate
-
-        private DispatcherTimer timerImgSequence;
-        private int i_animateCanvasNode = 0;
-        private bool bCanvasAnimationActive = false;
-        private List<CanvasAnimationFrame> animate_PreLoadImages = new List<CanvasAnimationFrame>(); // list of pre-loaded images for animation [Image name, delay, origin, image]
         /// <summary>
         /// Animate the list of selected canvases
         /// </summary>
         public void StartAnimateSelectedCanvas()
         {
-            if (timerImgSequence != null)
+            if (DataTree.SelectedNodes.Count == 0)
             {
-                timerImgSequence.Stop();
-                timerImgSequence = null;
+                MessageBox.Show("Please select at least one or more canvas node.");
+                return;
             }
-            timerImgSequence = new DispatcherTimer();
-            timerImgSequence.Interval = new TimeSpan(0, 0, 0, 0, 10);
-            timerImgSequence.Tick += TimerImgSequence_Tick;
 
-            if (bCanvasAnimationActive) // currently animating
+            List<WzNode> selectedNodes = new List<WzNode>();
+            foreach (WzNode node in DataTree.SelectedNodes)
             {
-                StopCanvasAnimation();
+                selectedNodes.Add(node);
             }
-            else if (DataTree.SelectedNodes.Count >= 1)
+
+            string path_title = ((WzNode)DataTree.SelectedNodes[0]).Parent?.FullPath ?? "Animate";
+
+            Thread thread = new Thread(() =>
             {
-                List<CanvasAnimationFrame> load_animate_PreLoadImages = new List<CanvasAnimationFrame>();
-
-                // Check all selected nodes, make sure they're all images.
-                // and add to a list
-                bool loadSuccessfully = true;
-                string loadErrorMsg = null;
-
-                foreach (WzNode selNode in DataTree.SelectedNodes)
+                try
                 {
-                    WzObject obj = (WzObject)selNode.Tag;
-
-                    WzCanvasProperty canvasProperty;
-
-                    bool isUOLProperty = obj is WzUOLProperty;
-                    if (obj is WzCanvasProperty || isUOLProperty)
-                    {
-                        // Get image property
-                        System.Drawing.Bitmap image;
-                        if (!isUOLProperty)
-                        {
-                            canvasProperty = ((WzCanvasProperty)obj);
-                            image = canvasProperty.GetLinkedWzCanvasBitmap();
-                        }
-                        else
-                        {
-                            WzObject linkVal = ((WzUOLProperty)obj).LinkValue;
-                            if (linkVal is WzCanvasProperty)
-                            {
-                                canvasProperty = ((WzCanvasProperty)linkVal);
-                                image = canvasProperty.GetLinkedWzCanvasBitmap();
-                            }
-                            else
-                            { // one of the WzUOLProperty link data isnt a canvas
-                                loadSuccessfully = false;
-                                loadErrorMsg = "Error loading WzUOLProperty ID: " + obj.Name;
-                                break;
-                            }
-                        }
-
-                        // Get delay property
-                        int? delay = canvasProperty[WzCanvasProperty.AnimationDelayPropertyName]?.GetInt();
-                        if (delay == null)
-                            delay = 0;
-
-                        // Add to the list of images to render
-                        load_animate_PreLoadImages.Add(new CanvasAnimationFrame()
-                        {
-                            Name = obj.Name,
-                            Delay = (int)delay,
-                            origin = canvasProperty.GetCanvasOriginPosition(),
-                            head = canvasProperty.GetCanvasHeadPosition(),
-                            lt = canvasProperty.GetCanvasLtPosition(),
-                            Image = BitmapToImageSource.ToWpfBitmap(image)
-                        });
-                    }
-                    else
-                    {
-                        loadSuccessfully = false;
-                        loadErrorMsg = "One of the selected nodes is not a WzCanvasProperty type";
-                        break;
-                    }
+                    ImageAnimationPreviewWindow previewWnd = new ImageAnimationPreviewWindow(selectedNodes, path_title);
+                    previewWnd.Run();
                 }
-
-                if (!loadSuccessfully)
+                catch (Exception ex)
                 {
-                    MessageBox.Show(loadErrorMsg, "Animate", MessageBoxButton.OK);
+                    MessageBox.Show("Error previewing animation. " + ex.ToString());
                 }
-                else
-                {
-                    if (animate_PreLoadImages.Count > 0) // clear existing images
-                        animate_PreLoadImages.Clear();
-
-                    // Sort by image name
-                    IOrderedEnumerable<CanvasAnimationFrame> sorted = load_animate_PreLoadImages.OrderBy(x => x, new SemiNumericComparer());
-                    animate_PreLoadImages.Clear(); // clear existing
-                    animate_PreLoadImages.AddRange(sorted);
-
-                    // Start animation
-                    bCanvasAnimationActive = true; // flag
-
-                    timerImgSequence.Start();
-                    menuItem_Animate.Header = "Stop (F5)";
-                }
-            }
-            else
-            {
-                MessageBox.Show("Select two or more nodes WzCanvasProperty", "Selection", MessageBoxButton.OK);
-            }
-        }
-
-        /// <summary>
-        /// Animate canvas timer
-        /// </summary>
-        /// <param name="sender"></param>
-        /// <param name="e"></param>
-        private void TimerImgSequence_Tick(object sender, EventArgs e)
-        {
-            timerImgSequence.Stop();
-
-            if (i_animateCanvasNode >= animate_PreLoadImages.Count) // last animate node, reset to 0 next
-            {
-                i_animateCanvasNode = 0;
-            }
-
-            CanvasAnimationFrame currentSelectedFrame = animate_PreLoadImages[i_animateCanvasNode];
-            i_animateCanvasNode++; // increment 1
-
-            SetImageRenderView(null, currentSelectedFrame);
-
-            // Set tooltip text
-            if (i_animateCanvasNode == animate_PreLoadImages.Count)
-                statusBarItemLabel_Others.Text = "# " + currentSelectedFrame.Name + ", Delay: " + currentSelectedFrame.Delay + " ms. Repeating animation.";
-            else
-                statusBarItemLabel_Others.Text = "# " + currentSelectedFrame.Name + ", Delay: " + currentSelectedFrame.Delay + " ms.";
-
-            timerImgSequence.Interval = new TimeSpan(0, 0, 0, 0, currentSelectedFrame.Delay);
-            timerImgSequence.Start();
-        }
-
-        /// <summary>
-        /// Stop animating canvases
-        /// </summary>
-        public void StopCanvasAnimation()
-        {
-            i_animateCanvasNode = 0;
-
-            if (timerImgSequence != null)
-            {
-                timerImgSequence.Stop();
-                timerImgSequence = null;
-            }
-            menuItem_Animate.Header = "Animate (F5)";
-
-            // clear memory
-            animate_PreLoadImages.Clear();
-
-            bCanvasAnimationActive = false; // flag
-        }
-
-        private class CanvasAnimationFrame
-        {
-            public string Name;
-            public int Delay;
-            public PointF origin, head, lt;
-            public ImageSource Image;
-        }
-
-        /// <summary>
-        /// Comparer for string names. in ascending order
-        /// Compares by Numeric when possible, so it does not sort by name.
-        /// </summary>
-        private class SemiNumericComparer : IComparer<CanvasAnimationFrame>
-        {
-            [MethodImpl(MethodImplOptions.AggressiveInlining)]
-            public int Compare(CanvasAnimationFrame s1, CanvasAnimationFrame s2)
-            {
-                string s1Text = s1.Name;
-                string s2Text = s2.Name;
-
-                bool isS1Numeric = IsNumeric(s1Text);
-                bool isS2Numeric = IsNumeric(s2Text);
-
-                if (isS1Numeric && isS2Numeric)
-                {
-                    int s1val = Convert.ToInt32(s1Text);
-                    int s2val = Convert.ToInt32(s2Text);
-
-                    if (s1val > s2val)
-                        return 1;
-                    else if (s1val < s2val)
-                        return -1;
-                    else if (s1val == s2val)
-                        return 0;
-                }
-                else if (isS1Numeric && !isS2Numeric)
-                    return -1;
-                else if (!isS1Numeric && isS2Numeric)
-                    return 1;
-
-                return string.Compare(s1Text, s2Text, true);
-            }
-
-            [MethodImpl(MethodImplOptions.AggressiveInlining)]
-            private static bool IsNumeric(string value)
-            {
-                int parseInt = 0;
-                return Int32.TryParse(value, out parseInt);
-            }
+            });
+            thread.Start();
+            // thread.Join();
         }
 
         private void nextLoopTime_comboBox_SelectedIndexChanged(object sender, EventArgs e)
@@ -841,7 +694,7 @@ namespace HaRepacker.GUI.Panels
                 string text = nameBox.Text;
                 ((WzNode)DataTree.SelectedNode).ChangeName(text);
                 nameBox.Text = text;
-                nameBox.ButtonEnabled = false;
+                nameBox.ApplyButtonEnabled = false;
             }
             else
                 Warning.Error(Properties.Resources.MainNodeExists);
@@ -866,16 +719,27 @@ namespace HaRepacker.GUI.Panels
             string setText = textPropBox.Text;
 
             WzObject obj = (WzObject)DataTree.SelectedNode.Tag;
-            if (obj is WzImageProperty)
-                ((WzImageProperty)obj).ParentImage.Changed = true;
-            if (obj is WzVectorProperty)
+            if (obj is WzImageProperty imageProperty)
             {
-                ((WzVectorProperty)obj).X.Value = vectorPanel.X;
-                ((WzVectorProperty)obj).Y.Value = vectorPanel.Y;
+                imageProperty.ParentImage.Changed = true;
             }
-            else if (obj is WzStringProperty)
-                ((WzStringProperty)obj).Value = setText;
-            else if (obj is WzFloatProperty)
+
+            if (obj is WzVectorProperty vectorProperty)
+            {
+                vectorProperty.X.Value = vectorPanel.X;
+                vectorProperty.Y.Value = vectorPanel.Y;
+            }
+            else if (obj is WzStringProperty stringProperty)
+            {
+                if (!stringProperty.IsSpineAtlasResources)
+                {
+                    stringProperty.Value = setText;
+                } else
+                {
+                    throw new NotSupportedException("Usage of textBoxProp for spine WzStringProperty.");
+                }
+            }
+            else if (obj is WzFloatProperty floatProperty)
             {
                 float val;
                 if (!float.TryParse(setText, out val))
@@ -883,9 +747,9 @@ namespace HaRepacker.GUI.Panels
                     Warning.Error(string.Format(Properties.Resources.MainConversionError, setText));
                     return;
                 }
-                ((WzFloatProperty)obj).Value = val;
+                floatProperty.Value = val;
             }
-            else if (obj is WzIntProperty)
+            else if (obj is WzIntProperty intProperty)
             {
                 int val;
                 if (!int.TryParse(setText, out val))
@@ -893,9 +757,9 @@ namespace HaRepacker.GUI.Panels
                     Warning.Error(string.Format(Properties.Resources.MainConversionError, setText));
                     return;
                 }
-                ((WzIntProperty)obj).Value = val;
+                intProperty.Value = val;
             }
-            else if (obj is WzLongProperty)
+            else if (obj is WzLongProperty longProperty)
             {
                 long val;
                 if (!long.TryParse(setText, out val))
@@ -903,9 +767,9 @@ namespace HaRepacker.GUI.Panels
                     Warning.Error(string.Format(Properties.Resources.MainConversionError, setText));
                     return;
                 }
-                ((WzLongProperty)obj).Value = val;
+                longProperty.Value = val;
             }
-            else if (obj is WzDoubleProperty)
+            else if (obj is WzDoubleProperty doubleProperty)
             {
                 double val;
                 if (!double.TryParse(setText, out val))
@@ -913,9 +777,9 @@ namespace HaRepacker.GUI.Panels
                     Warning.Error(string.Format(Properties.Resources.MainConversionError, setText));
                     return;
                 }
-                ((WzDoubleProperty)obj).Value = val;
+                doubleProperty.Value = val;
             }
-            else if (obj is WzShortProperty)
+            else if (obj is WzShortProperty shortProperty)
             {
                 short val;
                 if (!short.TryParse(setText, out val))
@@ -923,19 +787,47 @@ namespace HaRepacker.GUI.Panels
                     Warning.Error(string.Format(Properties.Resources.MainConversionError, setText));
                     return;
                 }
-                ((WzShortProperty)obj).Value = val;
+                shortProperty.Value = val;
             }
-            else if (obj is WzUOLProperty)
+            else if (obj is WzUOLProperty UOLProperty)
             {
-                ((WzUOLProperty)obj).Value = setText;
-            } 
+                UOLProperty.Value = setText;
+            }
             else if (obj is WzLuaProperty)
             {
-                WzLuaProperty luaProp = (WzLuaProperty)obj;
+                throw new NotSupportedException("Moved to TextEditor_SaveButtonClicked()");
+            }
+        }
 
+        /// <summary>
+        /// On texteditor save button clicked
+        /// </summary>
+        /// <param name="sender"></param>
+        /// <param name="e"></param>
+        private void TextEditor_SaveButtonClicked(object sender, EventArgs e)
+        {
+            if (DataTree.SelectedNode == null)
+                return;
+
+            WzObject obj = (WzObject)DataTree.SelectedNode.Tag;
+            if (obj is WzLuaProperty luaProp)
+            {
+                string setText = textEditor.textEditor.Text;
                 byte[] encBytes = luaProp.EncodeDecode(Encoding.ASCII.GetBytes(setText));
                 luaProp.Value = encBytes;
-                //  ((WzLuaProperty)obj).Value = setText;
+            } 
+            else if (obj is WzStringProperty stringProp)
+            {
+                //if (stringProp.IsSpineAtlasResources)
+               // {
+                    string setText = textEditor.textEditor.Text;
+
+                    stringProp.Value = setText;
+              /*  } 
+                else
+                {
+                    throw new NotSupportedException("Usage of TextEditor for non-spine WzStringProperty.");
+                }*/
             }
         }
 
@@ -949,8 +841,8 @@ namespace HaRepacker.GUI.Panels
             Button clickSrc = (Button)sender;
 
             clickSrc.ContextMenu.IsOpen = true;
-          //  System.Windows.Forms.ContextMenuStrip contextMenu = new System.Windows.Forms.ContextMenuStrip();
-          //  contextMenu.Show(clickSrc, 0, 0);
+            //  System.Windows.Forms.ContextMenuStrip contextMenu = new System.Windows.Forms.ContextMenuStrip();
+            //  contextMenu.Show(clickSrc, 0, 0);
         }
 
         /// <summary>
@@ -958,9 +850,41 @@ namespace HaRepacker.GUI.Panels
         /// </summary>
         /// <param name="sender"></param>
         /// <param name="e"></param>
-        private void menuItem_Animate_Click(object sender, RoutedEventArgs e)
+        private void MenuItem_Animate_Click(object sender, RoutedEventArgs e)
         {
             StartAnimateSelectedCanvas();
+        }
+
+        /// <summary>
+        /// Save the image animation into a JPG file
+        /// </summary>
+        /// <param name="sender"></param>
+        /// <param name="e"></param>
+        private void MenuItem_saveImageAnimation_Click(object sender, RoutedEventArgs e)
+        {
+            WzObject seletedWzObject = (WzObject)DataTree.SelectedNode.Tag;
+
+            if (!AnimationBuilder.IsValidAnimationWzObject(seletedWzObject))
+                return;
+
+            // Check executing process architecture
+            /*AssemblyName executingAssemblyName = Assembly.GetExecutingAssembly().GetName();
+            var assemblyArchitecture = executingAssemblyName.ProcessorArchitecture;
+            if (assemblyArchitecture == ProcessorArchitecture.None)
+            {
+                System.Windows.Forms.MessageBox.Show(HaRepacker.Properties.Resources.ExecutingAssemblyError, HaRepacker.Properties.Resources.Warning, System.Windows.Forms.MessageBoxButtons.OK);
+                return;
+            }*/
+
+            System.Windows.Forms.SaveFileDialog dialog = new System.Windows.Forms.SaveFileDialog()
+            {
+                Title = HaRepacker.Properties.Resources.SelectOutApng,
+                Filter = string.Format("{0}|*.png", HaRepacker.Properties.Resources.ApngFilter)
+            };
+            if (dialog.ShowDialog() != System.Windows.Forms.DialogResult.OK)
+                return;
+
+            AnimationBuilder.ExtractAnimation((WzSubProperty)seletedWzObject, dialog.FileName, Program.ConfigurationManager.UserSettings.UseApngIncompatibilityFrame);
         }
 
         /// <summary>
@@ -968,16 +892,17 @@ namespace HaRepacker.GUI.Panels
         /// </summary>
         /// <param name="sender"></param>
         /// <param name="e"></param>
-        private void menuItem_changeImage_Click(object sender, RoutedEventArgs e)
+        private void MenuItem_changeImage_Click(object sender, RoutedEventArgs e)
         {
-            if (DataTree.SelectedNode.Tag is WzCanvasProperty)
+            if (DataTree.SelectedNode.Tag is WzCanvasProperty) // only allow button click if its an image property
             {
                 System.Windows.Forms.OpenFileDialog dialog = new System.Windows.Forms.OpenFileDialog()
                 {
-                    Title = "Select the image",
+                    Title = "Select an image",
                     Filter = "Supported Image Formats (*.png;*.bmp;*.jpg;*.gif;*.jpeg;*.tif;*.tiff)|*.png;*.bmp;*.jpg;*.gif;*.jpeg;*.tif;*.tiff"
                 };
-                if (dialog.ShowDialog() != System.Windows.Forms.DialogResult.OK) return;
+                if (dialog.ShowDialog() != System.Windows.Forms.DialogResult.OK)
+                    return;
                 System.Drawing.Bitmap bmp;
                 try
                 {
@@ -990,7 +915,20 @@ namespace HaRepacker.GUI.Panels
                 }
                 //List<UndoRedoAction> actions = new List<UndoRedoAction>(); // Undo action
 
-                WzCanvasProperty selectedWzCanvas = (WzCanvasProperty)DataTree.SelectedNode.Tag;
+                ChangeCanvasPropBoxImage(bmp);
+            }
+        }
+
+        /// <summary>
+        /// Changes the displayed image in 'canvasPropBox' with a user defined input.
+        /// </summary>
+        /// <param name="image"></param>
+        /// <param name=""></param>
+        private void ChangeCanvasPropBoxImage(Bitmap bmp)
+        {
+            if (DataTree.SelectedNode.Tag is WzCanvasProperty property)
+            {
+                WzCanvasProperty selectedWzCanvas = property;
 
                 if (selectedWzCanvas.HaveInlinkProperty()) // if its an inlink property, remove that before updating base image.
                 {
@@ -1001,7 +939,10 @@ namespace HaRepacker.GUI.Panels
 
                     // Add undo actions
                     //actions.Add(UndoRedoManager.ObjectRemoved((WzNode)parentCanvasNode, childInlinkNode));
-                    childInlinkNode.Delete(); // Delete '_inlink' node
+                    childInlinkNode.DeleteWzNode(); // Delete '_inlink' node
+
+                    // TODO: changing _Inlink image crashes
+                    // Mob2.wz/9400121/hit/0
                 }
                 else if (selectedWzCanvas.HaveOutlinkProperty()) // if its an inlink property, remove that before updating base image.
                 {
@@ -1012,13 +953,15 @@ namespace HaRepacker.GUI.Panels
 
                     // Add undo actions
                     //actions.Add(UndoRedoManager.ObjectRemoved((WzNode)parentCanvasNode, childInlinkNode));
+                    childInlinkNode.DeleteWzNode(); // Delete '_inlink' node
                 }
 
-                selectedWzCanvas.PngProperty.SetPNG(bmp);
+                selectedWzCanvas.PngProperty.SetImage(bmp);
 
                 // Updates
                 selectedWzCanvas.ParentImage.Changed = true;
-                canvasPropBox.Image = new BitmapImage(new Uri(dialog.FileName));
+
+                canvasPropBox.Image = bmp.ToWpfBitmap();
 
                 // Add undo actions
                 //UndoRedoMan.AddUndoBatch(actions);
@@ -1030,7 +973,7 @@ namespace HaRepacker.GUI.Panels
         /// </summary>
         /// <param name="sender"></param>
         /// <param name="e"></param>
-        private void menuItem_changeSound_Click(object sender, RoutedEventArgs e)
+        private void MenuItem_changeSound_Click(object sender, RoutedEventArgs e)
         {
             if (DataTree.SelectedNode.Tag is WzBinaryProperty)
             {
@@ -1064,7 +1007,7 @@ namespace HaRepacker.GUI.Panels
         /// </summary>
         /// <param name="sender"></param>
         /// <param name="e"></param>
-        private void menuItem_saveSound_Click(object sender, RoutedEventArgs e)
+        private void MenuItem_saveSound_Click(object sender, RoutedEventArgs e)
         {
             if (!(DataTree.SelectedNode.Tag is WzBinaryProperty))
                 return;
@@ -1144,6 +1087,105 @@ namespace HaRepacker.GUI.Panels
                 case 5: //tiff
                     wzCanvasPropertyObjLocation.Save(dialog.FileName, System.Drawing.Imaging.ImageFormat.Tiff);
                     break;
+            }
+        }
+
+        /// <summary>
+        /// Export .json, .atlas, as file
+        /// </summary>
+        /// <param name="sender"></param>
+        /// <param name="e"></param>
+        private void menuItem_ExportFile_Click(object sender, RoutedEventArgs e)
+        {
+            if (!(DataTree.SelectedNode.Tag is WzStringProperty))
+            {
+                return;
+            }
+            WzStringProperty stProperty = DataTree.SelectedNode.Tag as WzStringProperty;
+
+            string fileName = stProperty.Name;
+            string value = stProperty.Value;
+
+            string[] fileNameSplit = fileName.Split('.');
+            string fileType = fileNameSplit.Length > 1 ? fileNameSplit[fileNameSplit.Length - 1] : "txt";
+
+            System.Windows.Forms.SaveFileDialog saveFileDialog1 = new System.Windows.Forms.SaveFileDialog()
+            {
+                FileName = fileName,
+                Title = "Select where to save the file...",
+                Filter = fileType + " files (*."+ fileType + ")|*."+ fileType + "|All files (*.*)|*.*" 
+            }
+            ;
+            if (saveFileDialog1.ShowDialog() != System.Windows.Forms.DialogResult.OK) 
+                return;
+
+            using (System.IO.FileStream fs = (System.IO.FileStream)saveFileDialog1.OpenFile())
+            {
+                using (StreamWriter sw = new StreamWriter(fs))
+                {
+                    sw.WriteLine(value);
+                }
+            }
+        }
+        #endregion
+
+        #region Drag and Drop Image
+        private bool bDragEnterActive = false;
+        /// <summary>
+        /// Scroll viewer drag enter
+        /// </summary>
+        /// <param name="sender"></param>
+        /// <param name="e"></param>
+        private void canvasPropBox_DragEnter(object sender, DragEventArgs e)
+        {
+            System.Diagnostics.Debug.WriteLine("Drag Enter");
+            if (!bDragEnterActive)
+            {
+                bDragEnterActive = true;
+            }
+        }
+
+        /// <summary>
+        ///  Scroll viewer drag leave
+        /// </summary>
+        /// <param name="sender"></param>
+        /// <param name="e"></param>
+        private void canvasPropBox_DragLeave(object sender, DragEventArgs e)
+        {
+            System.Diagnostics.Debug.WriteLine("Drag Leave");
+
+            bDragEnterActive = false;
+        }
+        /// <summary>
+        /// Scroll viewer drag drop
+        /// </summary>
+        /// <param name="sender"></param>
+        /// <param name="e"></param>
+        private void canvasPropBox_Drop(object sender, DragEventArgs e)
+        {
+            System.Diagnostics.Debug.WriteLine("Drag Drop");
+            if (bDragEnterActive && DataTree.SelectedNode.Tag is WzCanvasProperty) // only allow button click if its an image property
+            {
+                if (e.Data.GetDataPresent(DataFormats.FileDrop))
+                {
+                    string[] files = (string[])e.Data.GetData(DataFormats.FileDrop);
+                    if (files.Length == 0)
+                        return;
+
+                    System.Drawing.Bitmap bmp;
+                    try
+                    {
+                        bmp = (System.Drawing.Bitmap)System.Drawing.Image.FromFile(files[0]);
+                    }
+                    catch (Exception exp)
+                    {
+                        return;
+                    }
+                    if (bmp != null)
+                        ChangeCanvasPropBoxImage(bmp);
+
+                    //List<UndoRedoAction> actions = new List<UndoRedoAction>(); // Undo action
+                }
             }
         }
         #endregion
@@ -1253,7 +1295,7 @@ namespace HaRepacker.GUI.Panels
                                     break;
 
                                 case ReplaceResult.Yes: // Replace just this
-                                    child.Delete();
+                                    child.DeleteWzNode();
                                     parent.AddNode(node, false);
                                     replaceBoxResult = ReplaceResult.NoneSelectedYet; // reset after use
                                     break;
@@ -1263,7 +1305,7 @@ namespace HaRepacker.GUI.Panels
                                     break;
 
                                 case ReplaceResult.YesToAll:
-                                    child.Delete();
+                                    child.DeleteWzNode();
                                     parent.AddNode(node, false);
                                     break;
                             }
@@ -1293,8 +1335,8 @@ namespace HaRepacker.GUI.Panels
         private void ShowObjectValue(WzObject obj)
         {
             mp3Player.SoundProperty = null;
-            nameBox.Text = obj is WzFile ? ((WzFile)obj).Header.Copyright : obj.Name;
-            nameBox.ButtonEnabled = false;
+            nameBox.Text = obj is WzFile file ? file.Header.Copyright : obj.Name;
+            nameBox.ApplyButtonEnabled = false;
 
             toolStripStatusLabel_additionalInfo.Text = "-"; // Reset additional info to default
             if (isSelectingWzMapFieldLimit) // previously already selected. update again
@@ -1320,22 +1362,34 @@ namespace HaRepacker.GUI.Panels
                 }
                 menuItem_Animate.Visibility = bIsAllCanvas ? Visibility.Visible : Visibility.Collapsed;
             }
-            
+
             // Set default layout collapsed state
             mp3Player.Visibility = Visibility.Collapsed;
+
             // Button collapsed state
             menuItem_changeImage.Visibility = Visibility.Collapsed;
             menuItem_saveImage.Visibility = Visibility.Collapsed;
             menuItem_changeSound.Visibility = Visibility.Collapsed;
-            menuItem_saveSound.Visibility = Visibility.Collapsed; 
+            menuItem_saveSound.Visibility = Visibility.Collapsed;
+            menuItem_exportFile.Visibility = Visibility.Collapsed;
+
             // Canvas collapsed state
             canvasPropBox.Visibility = Visibility.Collapsed;
+
             // Value
             textPropBox.Visibility = Visibility.Collapsed;
-            // Field limit panel
+            
+            // Field limit panel Map.wz/../fieldLimit
             fieldLimitPanelHost.Visibility = Visibility.Collapsed;
+            // fieldType panel Map.wz/../fieldType
+            fieldTypePanel.Visibility = Visibility.Collapsed;
+
             // Vector panel
             vectorPanel.Visibility = Visibility.Collapsed;
+
+            // Avalon Text editor
+            textEditor.Visibility = Visibility.Collapsed;
+
 
             // vars
             bool bIsWzLuaProperty = obj is WzLuaProperty;
@@ -1347,46 +1401,49 @@ namespace HaRepacker.GUI.Panels
             bool bIsWzFloatProperty = obj is WzFloatProperty;
             bool bIsWzShortProperty = obj is WzShortProperty;
 
+            bool bAnimateMoreButton = false; // The button to animate when there is more option under button_MoreOption
+
             // Set layout visibility
             if (obj is WzFile || obj is WzDirectory || obj is WzImage || obj is WzNullProperty || obj is WzSubProperty || obj is WzConvexProperty)
             {
             }
-            else if (obj is WzCanvasProperty)
+            else if (obj is WzCanvasProperty canvasProp)
             {
+                bAnimateMoreButton = true; // flag
+
                 menuItem_changeImage.Visibility = Visibility.Visible;
                 menuItem_saveImage.Visibility = Visibility.Visible;
 
                 // Image
-                WzCanvasProperty canvas = (WzCanvasProperty)obj;
-                if (canvas.HaveInlinkProperty() || canvas.HaveOutlinkProperty())
+                if (canvasProp.HaveInlinkProperty() || canvasProp.HaveOutlinkProperty())
                 {
-                    System.Drawing.Image img = canvas.GetLinkedWzCanvasBitmap();
+                    System.Drawing.Image img = canvasProp.GetLinkedWzCanvasBitmap();
                     if (img != null)
-                        canvasPropBox.Image = BitmapToImageSource.ToWpfBitmap((System.Drawing.Bitmap)img);
+                        canvasPropBox.Image = ((System.Drawing.Bitmap)img).ToWpfBitmap();
                 }
                 else
-                    canvasPropBox.Image = BitmapToImageSource.ToWpfBitmap(canvas.GetLinkedWzCanvasBitmap());
+                    canvasPropBox.Image = canvasProp.GetLinkedWzCanvasBitmap().ToWpfBitmap();
 
-                SetImageRenderView(canvas, null);
+                SetImageRenderView(canvasProp);
             }
-            else if (obj is WzUOLProperty)
+            else if (obj is WzUOLProperty uolProperty)
             {
+                bAnimateMoreButton = true; // flag
+
                 // Image
-                WzObject linkValue = ((WzUOLProperty)obj).LinkValue;
-                if (linkValue is WzCanvasProperty)
+                WzObject linkValue = uolProperty.LinkValue;
+                if (linkValue is WzCanvasProperty canvasUOL)
                 {
                     canvasPropBox.Visibility = Visibility.Visible;
-                    canvasPropBox.Image = BitmapToImageSource.ToWpfBitmap(linkValue.GetBitmap());
-                    menuItem_saveImage.Visibility = Visibility.Visible;
+                    canvasPropBox.Image = canvasUOL.GetLinkedWzCanvasBitmap().ToWpfBitmap(); // in any event that the WzCanvasProperty is an '_inlink' or '_outlink'
+                    menuItem_saveImage.Visibility = Visibility.Visible; // dont show change image, as its a UOL
 
-                    WzCanvasProperty linkProperty = ((WzCanvasProperty)linkValue);
-
-                    SetImageRenderView(linkProperty, null);
-                } 
-                else if (linkValue is WzBinaryProperty) // Sound, used rarely in wz. i.e Sound.wz/Rune/1/Destroy
+                    SetImageRenderView(canvasUOL);
+                }
+                else if (linkValue is WzBinaryProperty binProperty) // Sound, used rarely in wz. i.e Sound.wz/Rune/1/Destroy
                 {
                     mp3Player.Visibility = Visibility.Visible;
-                    mp3Player.SoundProperty = (WzBinaryProperty)linkValue;
+                    mp3Player.SoundProperty = binProperty;
 
                     menuItem_changeSound.Visibility = Visibility.Visible;
                     menuItem_saveSound.Visibility = Visibility.Visible;
@@ -1394,22 +1451,28 @@ namespace HaRepacker.GUI.Panels
 
                 // Value
                 textPropBox.Visibility = Visibility.Visible;
+                textPropBox.ApplyButtonEnabled = false; // reset to disabled mode when changed
                 textPropBox.Text = obj.ToString();
             }
             else if (bIsWzSoundProperty)
             {
+                bAnimateMoreButton = true; // flag
+
                 mp3Player.Visibility = Visibility.Visible;
                 mp3Player.SoundProperty = (WzBinaryProperty)obj;
 
                 menuItem_changeSound.Visibility = Visibility.Visible;
                 menuItem_saveSound.Visibility = Visibility.Visible;
             }
-            else if (bIsWzStringProperty || bIsWzIntProperty || bIsWzLongProperty || bIsWzDoubleProperty || bIsWzFloatProperty || bIsWzShortProperty || bIsWzLuaProperty)
+            else if (bIsWzLuaProperty)
             {
-                // Value
-                textPropBox.Visibility = Visibility.Visible;
-                textPropBox.Text = obj.ToString();
+                textEditor.Visibility = Visibility.Visible;
+                textEditor.SetHighlightingDefinitionIndex(2); // javascript
 
+                textEditor.textEditor.Text = obj.ToString();
+            }
+            else if (bIsWzStringProperty || bIsWzIntProperty || bIsWzLongProperty || bIsWzDoubleProperty || bIsWzFloatProperty || bIsWzShortProperty)
+            {
                 // If text is a string property, expand the textbox
                 if (bIsWzStringProperty)
                 {
@@ -1417,6 +1480,16 @@ namespace HaRepacker.GUI.Panels
 
                     if (stringObj.IsSpineAtlasResources) // spine related resource
                     {
+                        bAnimateMoreButton = true;
+                        menuItem_exportFile.Visibility = Visibility.Visible;
+
+                        textEditor.Visibility = Visibility.Visible;
+                        textEditor.SetHighlightingDefinitionIndex(20); // json
+                        textEditor.textEditor.Text = obj.ToString();
+
+
+                        string path_title = stringObj.Parent?.FullPath ?? "Animate";
+
                         Thread thread = new Thread(() =>
                         {
                             try
@@ -1424,90 +1497,149 @@ namespace HaRepacker.GUI.Panels
                                 WzSpineAnimationItem item = new WzSpineAnimationItem(stringObj);
 
                                 // Create xna window
-                                SpineAnimationWindow Window = new SpineAnimationWindow(item);
+                                SpineAnimationWindow Window = new SpineAnimationWindow(item, path_title);
                                 Window.Run();
                             }
-                            catch (Exception e) 
+                            catch (Exception e)
                             {
                                 Warning.Error("Error initialising/ rendering spine object. " + e.ToString());
                             }
                         });
                         thread.Start();
                         thread.Join();
-
-                        // atlas string display
-                        textPropBox.AcceptsReturn = true;
-                        textPropBox.Height = 700;
                     }
-                    else if (stringObj.Name == PORTAL_NAME_OBJ_NAME) // Portal type name display - "pn" = portal name 
+                    else if (stringObj.Name.EndsWith(".json")) // Map001.wz/Back/BM3_3.img/spine/skeleton.json
                     {
-                        if (MapleLib.WzLib.WzStructure.Data.Tables.PortalTypeNames.ContainsKey(obj.GetString()))
+                        bAnimateMoreButton = true;
+                        menuItem_exportFile.Visibility = Visibility.Visible;
+
+                        textEditor.Visibility = Visibility.Visible;
+                        textEditor.SetHighlightingDefinitionIndex(20); // json
+                        textEditor.textEditor.Text = obj.ToString();
+                    }
+                    else
+                    {
+                        // Value
+                        textPropBox.Visibility = Visibility.Visible;
+                        textPropBox.Text = obj.ToString();
+                        textPropBox.ApplyButtonEnabled = false; // reset to disabled mode when changed
+
+                        if (stringObj.Name == PORTAL_NAME_OBJ_NAME) // Portal type name display - "pn" = portal name 
                         {
-                            toolStripStatusLabel_additionalInfo.Text =
-                                string.Format(Properties.Resources.MainAdditionalInfo_PortalType, MapleLib.WzLib.WzStructure.Data.Tables.PortalTypeNames[obj.GetString()]);
+                            if (MapleLib.WzLib.WzStructure.Data.Tables.PortalTypeNames.ContainsKey(obj.GetString()))
+                            {
+                                toolStripStatusLabel_additionalInfo.Text =
+                                    string.Format(Properties.Resources.MainAdditionalInfo_PortalType, MapleLib.WzLib.WzStructure.Data.Tables.PortalTypeNames[obj.GetString()]);
+                            }
+                            else
+                            {
+                                toolStripStatusLabel_additionalInfo.Text = string.Format(Properties.Resources.MainAdditionalInfo_PortalType, obj.GetString());
+                            }
                         }
                         else
                         {
-                            toolStripStatusLabel_additionalInfo.Text = string.Format(Properties.Resources.MainAdditionalInfo_PortalType, obj.GetString());
+                            textPropBox.AcceptsReturn = true;
                         }
-                    } else
-                    {
-                        textPropBox.AcceptsReturn = true;
-                        if (stringObj.IsSpineRelatedResources)
-                        {
-                            textPropBox.Height = 700;
-                        }
-                        else
-                        {
-                            textPropBox.Height = 200;
-                        }
-
                     }
-                } 
-                else if (bIsWzLuaProperty)
-                {
-                    textPropBox.AcceptsReturn = true;
-                    textPropBox.Height = 700;
                 }
-                else if (bIsWzLongProperty || bIsWzIntProperty)
+                else if (bIsWzLongProperty || bIsWzIntProperty || bIsWzShortProperty)
                 {
+                    textPropBox.Visibility = Visibility.Visible;
                     textPropBox.AcceptsReturn = false;
-                    textPropBox.Height = 35;
-
-                    ulong value_ = 0;
-                    if (bIsWzLongProperty)
-                    {
-                        value_ = (ulong) ((WzLongProperty)obj).GetLong();
-                    } else if (bIsWzIntProperty)
-                    {
-                        value_ = (ulong) ((WzIntProperty)obj).GetLong();
-                    }
+                    textPropBox.ApplyButtonEnabled = false; // reset to disabled mode when changed
 
                     // field limit UI
-                    if (obj.Name == FIELD_LIMIT_OBJ_NAME)
+                    if (obj.Name == FIELD_LIMIT_OBJ_NAME) // fieldLimit
                     {
                         isSelectingWzMapFieldLimit = true;
+
+                        ulong value_ = 0;
+                        if (bIsWzLongProperty) // use uLong for field limit
+                        {
+                            value_ = (ulong)((WzLongProperty)obj).GetLong();
+                        }
+                        else if (bIsWzIntProperty)
+                        {
+                            value_ = (ulong)((WzIntProperty)obj).GetLong();
+                        }
+                        else if (bIsWzShortProperty)
+                        {
+                            value_ = (ulong)((WzShortProperty)obj).GetLong();
+                        }
 
                         fieldLimitPanel1.UpdateFieldLimitCheckboxes(value_);
 
                         // Set visibility
                         fieldLimitPanelHost.Visibility = Visibility.Visible;
+                    } 
+                    else 
+                    {
+                        long value_ = 0; // long for others, in the case of negative value
+                        if (bIsWzLongProperty)
+                        {
+                            value_ = ((WzLongProperty)obj).GetLong();
+                        }
+                        else if (bIsWzIntProperty)
+                        {
+                            value_ = ((WzIntProperty)obj).GetLong();
+                        }
+                        else if (bIsWzShortProperty)
+                        {
+                            value_ = ((WzShortProperty)obj).GetLong();
+                        }
+                        textPropBox.Text = value_.ToString();
                     }
-                } else
+                } 
+                else if (bIsWzDoubleProperty || bIsWzFloatProperty)
+                {
+                    textPropBox.Visibility = Visibility.Visible;
+                    textPropBox.AcceptsReturn = false;
+                    textPropBox.ApplyButtonEnabled = false; // reset to disabled mode when changed
+
+                    if (bIsWzFloatProperty)
+                    {
+                        textPropBox.Text = ((WzFloatProperty)obj).GetFloat().ToString();
+                    } 
+                    else if (bIsWzDoubleProperty)
+                    {
+                        textPropBox.Text = ((WzDoubleProperty)obj).GetDouble().ToString();
+                    }
+                }
+                else
                 {
                     textPropBox.AcceptsReturn = false;
-                    textPropBox.Height = 35;
                 }
             }
-            else if (obj is WzVectorProperty)
+            else if (obj is WzVectorProperty property)
             {
                 vectorPanel.Visibility = Visibility.Visible;
 
-                vectorPanel.X = ((WzVectorProperty)obj).X.Value;
-                vectorPanel.Y = ((WzVectorProperty)obj).Y.Value;
+                vectorPanel.X = property.X.Value;
+                vectorPanel.Y = property.Y.Value;
             }
             else
             {
+            }
+
+            // Animation button
+            if (AnimationBuilder.IsValidAnimationWzObject(obj))
+            {
+                bAnimateMoreButton = true; // flag
+
+                menuItem_saveImageAnimation.Visibility = Visibility.Visible;
+            }
+            else
+            {
+                menuItem_saveImageAnimation.Visibility = Visibility.Collapsed;
+            }
+
+
+            // Storyboard hint
+            button_MoreOption.Visibility = bAnimateMoreButton ? Visibility.Visible : Visibility.Collapsed;
+            if (bAnimateMoreButton)
+            {
+                System.Windows.Media.Animation.Storyboard storyboard_moreAnimation = (System.Windows.Media.Animation.Storyboard)(this.FindResource("Storyboard_TreeviewItemSelectedAnimation"));
+                storyboard_moreAnimation.Begin();
             }
         }
 
@@ -1516,30 +1648,21 @@ namespace HaRepacker.GUI.Panels
         /// </summary>
         /// <param name="canvas"></param>
         /// <param name="animationFrame"></param>
-        private void SetImageRenderView(WzCanvasProperty canvas, CanvasAnimationFrame animationFrame)
+        private void SetImageRenderView(WzCanvasProperty canvas)
         {
-            if (animationFrame != null)
-            {
-                // Set XY point to canvas xaml
-                canvasPropBox.CanvasVectorOrigin = animationFrame.origin;
-                canvasPropBox.CanvasVectorHead = animationFrame.head;
-                canvasPropBox.CanvasVectorLt = animationFrame.lt;
+            // origin
+            int? delay = canvas[WzCanvasProperty.AnimationDelayPropertyName]?.GetInt();
+            PointF originVector = canvas.GetCanvasOriginPosition();
+            PointF headVector = canvas.GetCanvasHeadPosition();
+            PointF ltVector = canvas.GetCanvasLtPosition();
 
-                // Set image
-                canvasPropBox.Image = animationFrame.Image;
-            }
-            else
-            {
-                // origin
-                PointF originVector = canvas.GetCanvasOriginPosition();
-                PointF headVector = canvas.GetCanvasHeadPosition();
-                PointF ltVector = canvas.GetCanvasLtPosition();
+            // Set XY point to canvas xaml
+            canvasPropBox.ParentWzCanvasProperty = canvas;
+            canvasPropBox.Delay = delay ?? 0;
+            canvasPropBox.CanvasVectorOrigin = originVector;
+            canvasPropBox.CanvasVectorHead = headVector;
+            canvasPropBox.CanvasVectorLt = ltVector;
 
-                // Set XY point to canvas xaml
-                canvasPropBox.CanvasVectorOrigin = originVector;
-                canvasPropBox.CanvasVectorHead = headVector;
-                canvasPropBox.CanvasVectorLt = ltVector;
-            }
             if (canvasPropBox.Visibility != Visibility.Visible)
                 canvasPropBox.Visibility = Visibility.Visible;
         }

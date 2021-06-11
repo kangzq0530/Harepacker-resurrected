@@ -70,7 +70,7 @@ namespace MapleLib.WzLib.Util
 
 		public void WriteWzObjectValue(string s, byte type)
 		{
-			string storeName = type + "_" + s;
+			string storeName = string.Format("{0}_{1}", type, s);
 			if (s.Length > 4 && StringCache.ContainsKey(storeName))
 			{
 				Write((byte)2);
@@ -225,7 +225,7 @@ namespace MapleLib.WzLib.Util
 			uint encOffset = (uint)BaseStream.Position;
 			encOffset = (encOffset - Header.FStart) ^ 0xFFFFFFFF;
 			encOffset *= Hash;
-			encOffset -= CryptoConstants.WZ_OffsetConstant;
+			encOffset -= MapleCryptoConstants.WZ_OffsetConstant;
 			encOffset = RotateLeft(encOffset, (byte)(encOffset & 0x1F));
 			uint writeOffset = encOffset ^ (value - (Header.FStart * 2));
 			Write(writeOffset);

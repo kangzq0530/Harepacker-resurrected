@@ -18,6 +18,8 @@ using HaCreator.MapEditor.UndoRedo;
 using HaCreator.MapEditor.Input;
 using HaCreator.MapEditor.Instance.Shapes;
 using System.Threading;
+using HaSharedLibrary.Util;
+using System.Collections.ObjectModel;
 
 namespace HaCreator.MapEditor
 {
@@ -27,15 +29,17 @@ namespace HaCreator.MapEditor
         private Rectangle minimapArea;
         //private Point maxMapSize;
         private Point centerPoint;
-        private BoardItemsManager boardItems;
-        private List<Layer> layers = new List<Layer>();
-        private List<BoardItem> selected = new List<BoardItem>();
+        private readonly BoardItemsManager boardItems;
+        private readonly List<Layer> mapLayers = new List<Layer>();
+        private readonly List<BoardItem> selected = new List<BoardItem>();
         private MultiBoard parent;
-        private Mouse mouse;
+        private readonly Mouse mouse;
         private MapInfo mapInfo = new MapInfo();
         private System.Drawing.Bitmap miniMap;
         private System.Drawing.Point miniMapPos;
         private Texture2D miniMapTexture;
+
+        // App settings
         private int selectedLayerIndex = ApplicationSettings.lastDefaultLayer;
         private int selectedPlatform = 0;
         private bool selectedAllLayers = ApplicationSettings.lastAllLayers;
@@ -43,17 +47,17 @@ namespace HaCreator.MapEditor
         private int _hScroll = 0;
         private int _vScroll = 0;
         private int _mag = 16;
-        private UndoRedoManager undoRedoMan;
-        ItemTypes visibleTypes;
-        ItemTypes editedTypes;
+        private readonly UndoRedoManager undoRedoMan;
+        private ItemTypes visibleTypes;
+        private ItemTypes editedTypes;
         private bool loading = false;
         private VRRectangle vrRect = null;
         private MinimapRectangle mmRect = null;
         private System.Windows.Controls.ContextMenu menu = null;
-        private SerializationManager serMan = null;
+        private readonly SerializationManager serMan = null;
         private System.Windows.Controls.TabItem page = null;
         private bool dirty;
-        private int uid;
+        private readonly int uid;
 
         private static int uidCounter = 0;
 
@@ -200,7 +204,8 @@ namespace HaCreator.MapEditor
                 parent.FillRectangle(sprite, minimapArea, Color.Gray);
                 // Render minimap
                 if (miniMapTexture == null) 
-                    miniMapTexture = BoardItem.TextureFromBitmap(parent.Device, miniMap);
+                    miniMapTexture = miniMap.ToTexture2D(parent.GraphicsDevice);
+
                 sprite.Draw(miniMapTexture, minimapImageArea, null, Color.White, 0, new Vector2(0, 0), SpriteEffects.None, 0.99999f);
                 // Render current location on minimap
                 parent.DrawRectangle(sprite, new Rectangle(hScroll / _mag, vScroll / _mag, parent.CurrentDXWindowSize.Width / _mag, (int)parent.CurrentDXWindowSize.Height / _mag), Color.Blue);
@@ -216,12 +221,6 @@ namespace HaCreator.MapEditor
             }
         }
 
-        public void CreateLayers(int num)
-        {
-            for (int i = 0; i < num; i++)
-                new Layer(this);
-        }
-
         public void Dispose()
         {
             lock (parent)
@@ -229,17 +228,12 @@ namespace HaCreator.MapEditor
                 parent.Boards.Remove(this);
                 boardItems.Clear();
                 selected.Clear();
-                layers.Clear();
+                mapLayers.Clear();
             }
             // This must be called when MultiBoard is unlocked, to prevent BackupManager deadlocking
             parent.OnBoardRemoved(this);
             GC.Collect();
             GC.WaitForPendingFinalizers();
-        }
-
-        public void CopyItemsTo(List<BoardItem> items, Board dstBoard, Point offset)
-        {
-
         }
 
         #region Properties
@@ -399,11 +393,31 @@ namespace HaCreator.MapEditor
             }
         }
 
-        public List<Layer> Layers
+        /// <summary>
+        /// Map layers
+        /// </summary>
+        public void CreateMapLayers()
+        {
+            for (int i = 0; i <= MapConstants.MaxMapLayers; i++)
+            {
+                AddMapLayer(new Layer(this));
+            }
+        }
+        
+        public void AddMapLayer(Layer layer)
+        {
+            lock (parent)
+                mapLayers.Add(layer);
+        }
+
+        /// <summary>
+        /// Gets the map layers
+        /// </summary>
+        public ReadOnlyCollection<Layer> Layers
         {
             get
             {
-                return layers;
+                return mapLayers.AsReadOnly();
             }
         }
 

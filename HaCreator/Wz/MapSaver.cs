@@ -19,6 +19,8 @@ using HaCreator.MapEditor.Instance.Misc;
 using HaCreator.MapEditor.Info;
 using HaCreator.MapEditor.Instance;
 using HaCreator.Collections;
+using HaCreator.MapSimulator;
+using HaSharedLibrary.Render.DX;
 
 namespace HaCreator.Wz
 {
@@ -137,9 +139,11 @@ namespace HaCreator.Wz
             if (board.MiniMap != null && board.MinimapRectangle != null)
             {
                 WzSubProperty miniMap = new WzSubProperty();
-                WzCanvasProperty canvas = new WzCanvasProperty();
-                canvas.PngProperty = new WzPngProperty();
-                canvas.PngProperty.SetPNG(board.MiniMap);
+                WzCanvasProperty canvas = new WzCanvasProperty
+                {
+                    PngProperty = new WzPngProperty()
+                };
+                canvas.PngProperty.SetImage(board.MiniMap);
                 miniMap["canvas"] = canvas;
                 miniMap["width"] = InfoTool.SetInt(board.MinimapRectangle.Width);
                 miniMap["height"] = InfoTool.SetInt(board.MinimapRectangle.Height);
@@ -152,7 +156,7 @@ namespace HaCreator.Wz
 
         public void SaveLayers()
         {
-            for (int layer = 0; layer <= 7; layer++)
+            for (int layer = 0; layer <= MapConstants.MaxMapLayers; layer++)
             {
                 WzSubProperty layerProp = new WzSubProperty();
                 WzSubProperty infoProp = new WzSubProperty();
@@ -171,10 +175,10 @@ namespace HaCreator.Wz
                 int objIndex = 0;
                 foreach (LayeredItem item in l.Items)
                 {
-                    if (item is ObjectInstance)
+                    if (item is ObjectInstance instance)
                     {
                         WzSubProperty obj = new WzSubProperty();
-                        ObjectInstance objInst = (ObjectInstance)item;
+                        ObjectInstance objInst = instance;
                         ObjectInfo objInfo = (ObjectInfo)objInst.BaseInfo;
 
                         obj["x"] = InfoTool.SetInt(objInst.UnflippedX);
@@ -209,9 +213,9 @@ namespace HaCreator.Wz
                         objParent[objIndex.ToString()] = obj;
                         objIndex++;
                     }
-                    else if (item is TileInstance)
+                    else if (item is TileInstance instance1)
                     {
-                        tiles.Add((TileInstance)item);
+                        tiles.Add(instance1);
                     }
                     else
                     {
@@ -283,6 +287,9 @@ namespace HaCreator.Wz
 
         public void SavePortals()
         {
+            List<PortalInstance> portalInstanceSorted = new List<PortalInstance>(board.BoardItems.Portals);
+
+
             WzSubProperty portalParent = new WzSubProperty();
             for (int i = 0; i < board.BoardItems.Portals.Count; i++)
             {
@@ -448,9 +455,17 @@ namespace HaCreator.Wz
                 bgProp["a"] = InfoTool.SetInt(bgInst.a);
                 bgProp["type"] = InfoTool.SetInt((int)bgInst.type);
                 bgProp["front"] = InfoTool.SetOptionalBool(bgInst.front);
+                if (bgInst.screenMode != (int) RenderResolution.Res_All) // 0
+                    bgProp["screenMode"] = InfoTool.SetInt(bgInst.screenMode);
+
+                if (bgInst.SpineAni != null) // dont put anything if null
+                    bgProp["spineAni"] = InfoTool.SetOptionalString(bgInst.SpineAni); // dont put anything if null
+                if (bgInst.SpineRandomStart) // dont put anything if false
+                    bgProp["spineRandomStart"] = InfoTool.SetOptionalBool(bgInst.SpineRandomStart);  // dont put anything if false
+
                 bgProp["f"] = InfoTool.SetOptionalBool(bgInst.Flip);
                 bgProp["bS"] = InfoTool.SetString(bgInfo.bS);
-                bgProp["ani"] = InfoTool.SetBool(bgInfo.ani);
+                bgProp["ani"] = InfoTool.SetBool(bgInfo.Type == BackgroundInfoType.Animation);
                 bgProp["no"] = InfoTool.SetInt(int.Parse(bgInfo.no));
                 bgParent[i.ToString()] = bgProp;
             }
@@ -820,6 +835,9 @@ namespace HaCreator.Wz
             }
         }
 
+        /// <summary>
+        /// Saves the additional unsupported properties read from the map image.
+        /// </summary>
         private void SaveAdditionals()
         {
             foreach (WzImageProperty prop in board.MapInfo.additionalNonInfoProps)

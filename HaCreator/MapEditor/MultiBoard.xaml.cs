@@ -15,6 +15,7 @@
 using System;
 using System.Collections.Generic;
 using System.ComponentModel;
+using System.Diagnostics;
 using System.IO;
 using System.Linq;
 using System.Text;
@@ -31,6 +32,7 @@ using HaCreator.MapEditor.Input;
 using HaCreator.MapEditor.Instance;
 using HaCreator.MapEditor.Text;
 using HaCreator.MapSimulator;
+using HaSharedLibrary.Util;
 using MapleLib.WzLib.WzStructure.Data;
 using Microsoft.Xna.Framework;
 using Microsoft.Xna.Framework.Graphics;
@@ -47,16 +49,30 @@ namespace HaCreator.MapEditor
     {
         private GraphicsDevice DxDevice;
         private Microsoft.Xna.Framework.Graphics.SpriteBatch sprite;
-        private PresentationParameters pParams = new PresentationParameters();
+        private readonly PresentationParameters pParams = new PresentationParameters();
         private Microsoft.Xna.Framework.Graphics.Texture2D pixel;
-        private List<Board> boards = new List<Board>();
-        private Board selectedBoard = null;
+
         private FontEngine fontEngine;
         private Thread renderer;
         private bool needsReset = false;
-        private IntPtr dxHandle;
-        private UserObjectsManager userObjs;
+        private readonly IntPtr dxHandle;
+        private readonly UserObjectsManager userObjs;
         private Scheduler scheduler;
+
+        // UI
+        private readonly List<Board> boards = new List<Board>();
+        private Board selectedBoard = null;
+        private HaCreatorStateManager _HaCreatorStateManager = null;
+        public HaCreatorStateManager HaCreatorStateManager
+        {
+            get { return _HaCreatorStateManager; }
+            set
+            {
+                if (_HaCreatorStateManager != null)
+                    throw new Exception("HaCreatorStateManager already set.");
+                this._HaCreatorStateManager = value; 
+            }
+        }
 
         private System.Windows.WindowState CurrentHostWindowState = System.Windows.WindowState.Normal;
         private System.Drawing.Size _CurrentDXWindowSize = new System.Drawing.Size();
@@ -130,13 +146,16 @@ namespace HaCreator.MapEditor
             this.SizeChanged += MultiBoard2_SizeChanged;
         }
 
+        /// <summary>
+        /// Starts the multi board along with associated graphics device
+        /// </summary>
         public void Start()
         {
             if (DeviceReady) 
                 return;
 
-            if (selectedBoard == null) 
-                throw new Exception("Cannot start without a selected board");
+            //if (selectedBoard == null) 
+            //    throw new Exception("Cannot start without a selected board");
             Visibility = Visibility.Visible;
 
             AdjustScrollBars();
@@ -216,26 +235,26 @@ namespace HaCreator.MapEditor
             System.Drawing.Bitmap bmp = new System.Drawing.Bitmap(1, 1);
             bmp.SetPixel(0, 0, System.Drawing.Color.White);
 
-            return BoardItem.TextureFromBitmap(DxDevice, bmp);
+            return bmp.ToTexture2D(DxDevice);
         }
 
-        public Board CreateBoard(Microsoft.Xna.Framework.Point mapSize, Point centerPoint, int layers, System.Windows.Controls.ContextMenu menu)
+        public Board CreateBoard(Microsoft.Xna.Framework.Point mapSize, Point centerPoint, System.Windows.Controls.ContextMenu menu)
         {
             lock (this)
             {
                 Board newBoard = new Board(mapSize, centerPoint, this, menu, ApplicationSettings.theoreticalVisibleTypes, ApplicationSettings.theoreticalEditedTypes);
                 boards.Add(newBoard);
-                newBoard.CreateLayers(layers);
+                newBoard.CreateMapLayers();
                 return newBoard;
             }
         }
 
-        public Board CreateHiddenBoard(Point mapSize, Point centerPoint, int layers)
+        public Board CreateHiddenBoard(Point mapSize, Point centerPoint)
         {
             lock (this)
             {
                 Board newBoard = new Board(mapSize, centerPoint, this, null, ItemTypes.None, ItemTypes.None);
-                newBoard.CreateLayers(layers);
+                newBoard.CreateMapLayers();
                 return newBoard;
             }
         }
@@ -288,7 +307,7 @@ namespace HaCreator.MapEditor
 #if UseXNAZorder
             sprite.Begin(SpriteBlendMode.AlphaBlend, SpriteSortMode.FrontToBack, SaveStateMode.None);
 #else
-            sprite.Begin(SpriteSortMode.Immediate, BlendState.NonPremultiplied, null, null, null, null, Matrix.CreateScale(MapSimulator.MapSimulator.RenderObjectScaling));
+            sprite.Begin(SpriteSortMode.Immediate, BlendState.NonPremultiplied, null, null, null, null, Matrix.CreateScale(1.0f));
 #endif
             lock (this)
             {
@@ -344,7 +363,10 @@ namespace HaCreator.MapEditor
             get { return vScrollBar.Maximum; }
         }
 
-        public GraphicsDevice Device
+        /// <summary>
+        /// Gets the graphic device for rendering on the multiboard
+        /// </summary>
+        public GraphicsDevice GraphicsDevice
         {
             get { return DxDevice; }
         }
@@ -378,6 +400,8 @@ namespace HaCreator.MapEditor
         {
             get
             {
+                if (selectedBoard == null)
+                    return new Point(0, 0);
                 return selectedBoard.MapSize;
             }
         }
@@ -402,7 +426,7 @@ namespace HaCreator.MapEditor
         #endregion
 
         #region Human I\O Handling
-        private BoardItem GetHighestItem(List<BoardItem> items)
+        private BoardItem GetHighestBoardItem(List<BoardItem> items)
         {
             if (items.Count < 1) return null;
             int highestZ = -1;
@@ -624,6 +648,24 @@ namespace HaCreator.MapEditor
         }
 
         /// <summary>
+        /// Mouse wheel
+        /// Wheelup = positive, Wheeldown = negative
+        /// </summary>
+        /// <param name="sender"></param>
+        /// <param name="e"></param>
+        private void DxContainer_MouseWheel(object sender, System.Windows.Forms.MouseEventArgs e)
+        {
+            int rotationDelta = e.Delta;
+            //System.Diagnostics.Debug.Write("Rotation: " + rotationDelta);
+
+            // wheel up = positive, wheel down = negative
+            if (!AddHScrollbarValue((int)rotationDelta))
+            {
+                //AddVScrollbarValue((int)rotationDelta); // scroll v scroll bar instead if its not possible
+            }
+        }
+
+        /// <summary>
         /// Mouse down
         /// </summary>
         /// <param name="sender"></param>
@@ -803,7 +845,7 @@ namespace HaCreator.MapEditor
                     vScrollBar.Value = vScrollBar.Maximum;
                 else
                     vScrollBar.Value -= (int)scrollValue;
-                vScrollBar_Scroll(null, null);
+                VScrollBar_Scroll(null, null);
 
                 return true;
             }
@@ -871,6 +913,27 @@ namespace HaCreator.MapEditor
             DxDevice.Reset(pParams);
         }
 
+        /// <summary>
+        /// Adds the horizontal scroll bar value
+        /// </summary>
+        /// <param name="value"></param>
+        /// <returns>True if scrolling is possible</returns>
+        public bool AddHScrollbarValue(int value)
+        {
+            if (hScrollBar.Value + value == hScrollBar.Value)
+                return false;
+
+            SetHScrollbarValue((int) (hScrollBar.Value + value));
+
+            // Update display
+            HScrollBar_Scroll(null, null);
+            return true;
+        }
+
+        /// <summary>
+        /// Sets the horizontal scroll bar value
+        /// </summary>
+        /// <param name="value"></param>
         public void SetHScrollbarValue(int value)
         {
             lock (this)
@@ -879,6 +942,27 @@ namespace HaCreator.MapEditor
             }
         }
 
+        /// <summary>
+        /// Adds the horizontal scroll bar value
+        /// </summary>
+        /// <param name="value"></param>
+        /// <returns>True if scrolling is possible</returns>
+        public bool AddVScrollbarValue(int value)
+        {
+            if (vScrollBar.Value + value == hScrollBar.Value)
+                return false;
+
+            SetVScrollbarValue((int)(vScrollBar.Value + value));
+
+            // Update display
+            VScrollBar_Scroll(null, null);
+            return true;
+        }
+
+        /// <summary>
+        /// Sets the vertical scroll bar value
+        /// </summary>
+        /// <param name="value"></param>
         public void SetVScrollbarValue(int value)
         {
             lock (this)
@@ -892,7 +976,7 @@ namespace HaCreator.MapEditor
         /// </summary>
         /// <param name="sender"></param>
         /// <param name="e"></param>
-        private void vScrollBar_Scroll(object sender, System.Windows.Controls.Primitives.ScrollEventArgs e)
+        private void VScrollBar_Scroll(object sender, System.Windows.Controls.Primitives.ScrollEventArgs e)
         {
             lock (this)
             {
@@ -905,7 +989,7 @@ namespace HaCreator.MapEditor
         /// </summary>
         /// <param name="sender"></param>
         /// <param name="e"></param>
-        private void hScrollBar_Scroll(object sender, System.Windows.Controls.Primitives.ScrollEventArgs e)
+        private void HScrollBar_Scroll(object sender, System.Windows.Controls.Primitives.ScrollEventArgs e)
         {
             lock (this)
             {

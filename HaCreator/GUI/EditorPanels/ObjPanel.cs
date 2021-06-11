@@ -4,9 +4,9 @@
 * License, v. 2.0. If a copy of the MPL was not distributed with this
 * file, You can obtain one at http://mozilla.org/MPL/2.0/. */
 
+using HaCreator.CustomControls;
 using HaCreator.MapEditor;
 using HaCreator.MapEditor.Info;
-using HaCreator.ThirdParty;
 using MapleLib.WzLib;
 using MapleLib.WzLib.WzProperties;
 using MapleLib.WzLib.WzStructure.Data;
@@ -108,7 +108,11 @@ namespace HaCreator.GUI.EditorPanels
                         item.MaxHeight = UserSettings.ImageViewerHeight;
                         item.MaxWidth = UserSettings.ImageViewerWidth;
                     }
-                }catch(InvalidCastException ex) { return; }
+                }
+                catch(InvalidCastException) 
+                { 
+                    return; 
+                }
             }
         }
 

@@ -4,29 +4,19 @@
 * License, v. 2.0. If a copy of the MPL was not distributed with this
 * file, You can obtain one at http://mozilla.org/MPL/2.0/. */
 
-using System;
-using System.Collections.Generic;
-using System.Linq;
+
 using System.Text;
-using MapleLib;
-using MapleLib.WzLib;
-using MapleLib.WzLib.Util;
-using MapleLib.WzLib.WzProperties;
-using System.IO;
-using System.Reflection;
 using XNA = Microsoft.Xna.Framework;
-using HaCreator.MapEditor;
 using MapleLib.WzLib.WzStructure.Data;
-using MapleLib.WzLib.WzStructure;
 using System.Drawing;
-using HaCreator.MapSimulator;
+using HaSharedLibrary.Render.DX;
 
 namespace HaCreator
 {
     public static class UserSettings
     {
         public static bool ShowErrorsMessage = true;
-        public static MapRenderResolution SimulateResolution = MapRenderResolution.Res_1024x768; // combo box selection. 800x600, 1024x768, 1280x720, 1920x1080
+        public static RenderResolution SimulateResolution = RenderResolution.Res_1024x768; // combo box selection. 800x600, 1024x768, 1280x720, 1920x1080
         public static bool ClipText = false;
         public static Color TabColor = Color.LightSteelBlue;
         public static int LineWidth = 1;
@@ -65,7 +55,7 @@ namespace HaCreator
         public static int zShift = 1;
         public static int HiddenLifeR = 127;
         public static string FontName = "Arial";
-        public static int FontSize = 15;
+        public static int FontSize = 13;
         public static System.Drawing.FontStyle FontStyle = System.Drawing.FontStyle.Regular;
         public static int dotDescriptionBoxSize = 100;
         public static int ImageViewerHeight = 100;
@@ -97,8 +87,5 @@ namespace HaCreator
         public static bool lastAllLayers = true;
         public static string LastHamPath = "";
         public static string LastXmlPath = "";
-        public static string AuthorEmail = new string(Encoding.ASCII.GetChars(new byte[] { 
-                                            0x68,0x61,0x68,0x61,0x30,0x31,0x68,0x61,0x68,0x61,0x30,0x31,0x40,0x67,0x6d,0x61,0x69,0x6c,0x2e,0x63,0x6f,0x6d 
-                                            })); // The email address is obfuscated to prevent spambots from finding it on the git webpage
     }
 }

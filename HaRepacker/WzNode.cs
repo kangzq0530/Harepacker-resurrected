@@ -36,10 +36,11 @@ namespace HaRepacker
 
         private void ParseChilds(WzObject SourceObject)
         {
-            if (SourceObject == null) throw new NullReferenceException("Cannot create a null WzNode");
-            Tag = SourceObject;
+            Tag = SourceObject ?? throw new NullReferenceException("Cannot create a null WzNode");
             SourceObject.HRTag = this;
-            if (SourceObject is WzFile) SourceObject = ((WzFile)SourceObject).WzDirectory;
+
+            if (SourceObject is WzFile) 
+                SourceObject = ((WzFile)SourceObject).WzDirectory;
             if (SourceObject is WzDirectory)
             {
                 foreach (WzDirectory dir in ((WzDirectory)SourceObject).WzDirectories)
@@ -47,27 +48,36 @@ namespace HaRepacker
                 foreach (WzImage img in ((WzDirectory)SourceObject).WzImages)
                     Nodes.Add(new WzNode(img));
             }
-            else if (SourceObject is WzImage)
+            else if (SourceObject is WzImage image)
             {
-                if (((WzImage)SourceObject).Parsed)
-                    foreach (WzImageProperty prop in ((WzImage)SourceObject).WzProperties)
+                if (image.Parsed)
+                    foreach (WzImageProperty prop in image.WzProperties)
                         Nodes.Add(new WzNode(prop));
             }
-            else if (SourceObject is IPropertyContainer)
+            else if (SourceObject is IPropertyContainer container)
             {
-                foreach (WzImageProperty prop in ((IPropertyContainer)SourceObject).WzProperties)
+                foreach (WzImageProperty prop in container.WzProperties)
                     Nodes.Add(new WzNode(prop));
             }
         }
 
-        public void Delete()
+        public void DeleteWzNode()
         {
             try
             {
                 Remove();
-            }catch(Exception e) { throw new Exception("Cannot remove/replace an inlinked node"); }
-            if (Tag is WzImageProperty)
-                ((WzImageProperty)Tag).ParentImage.Changed = true;
+            }
+            catch(Exception) 
+            { 
+                throw new Exception("Cannot remove/replace an inlinked node"); 
+            }
+
+            if (Tag is WzImageProperty property)
+            {
+                if (property.ParentImage == null) // _inlink WzNode doesnt have a parent
+                    return;
+                property.ParentImage.Changed = true;
+            }
             ((WzObject)Tag).Remove();
         }
 
@@ -102,45 +112,57 @@ namespace HaRepacker
         public static bool CanNodeBeInserted(WzNode parentNode, string name)
         {
             WzObject obj = (WzObject)parentNode.Tag;
-            if (obj is IPropertyContainer) return ((IPropertyContainer)obj)[name] == null;
-            else if (obj is WzDirectory) return ((WzDirectory)obj)[name] == null;
-            else if (obj is WzFile) return ((WzFile)obj).WzDirectory[name] == null;
-            else return false;
+            if (obj is IPropertyContainer container) 
+                return container[name] == null;
+            else if (obj is WzDirectory directory) 
+                return directory[name] == null;
+            else if (obj is WzFile file) 
+                return file.WzDirectory[name] == null;
+            else 
+                return false;
         }
 
-        private bool addObjInternal(WzObject obj)
+        private bool AddObjInternal(WzObject obj)
         {
             WzObject TaggedObject = (WzObject)Tag;
-            if (TaggedObject is WzFile) TaggedObject = ((WzFile)TaggedObject).WzDirectory;
-            if (TaggedObject is WzDirectory)
+            if (TaggedObject is WzFile file) 
+                TaggedObject = file.WzDirectory;
+
+            if (TaggedObject is WzDirectory directory)
             {
-                if (obj is WzDirectory)
-                    ((WzDirectory)TaggedObject).AddDirectory((WzDirectory)obj);
-                else if (obj is WzImage)
-                    ((WzDirectory)TaggedObject).AddImage((WzImage)obj);
-                else return false;
+                if (obj is WzDirectory wzDirectory)
+                    directory.AddDirectory(wzDirectory);
+                else if (obj is WzImage wzImgProperty)
+                    directory.AddImage(wzImgProperty);
+                else
+                    return false;
             }
-            else if (TaggedObject is WzImage)
+            else if (TaggedObject is WzImage wzImageProperty)
             {
-                if (!((WzImage)TaggedObject).Parsed) ((WzImage)TaggedObject).ParseImage();
-                if (obj is WzImageProperty)
+                if (!wzImageProperty.Parsed) 
+                    wzImageProperty.ParseImage();
+                if (obj is WzImageProperty imgProperty)
                 {
-                    ((WzImage)TaggedObject).AddProperty((WzImageProperty)obj);
-                    ((WzImage)TaggedObject).Changed = true;
+                    wzImageProperty.AddProperty(imgProperty);
+                    wzImageProperty.Changed = true;
                 }
-                else return false;
+                else 
+                    return false;
             }
-            else if (TaggedObject is IPropertyContainer)
+            else if (TaggedObject is IPropertyContainer container)
             {
-                if (obj is WzImageProperty)
+                if (obj is WzImageProperty property)
                 {
-                    ((IPropertyContainer)TaggedObject).AddProperty((WzImageProperty)obj);
-                    if (TaggedObject is WzImageProperty)
-                        ((WzImageProperty)TaggedObject).ParentImage.Changed = true;
+                    container.AddProperty(property);
+                    if (TaggedObject is WzImageProperty imgProperty)
+                        imgProperty.ParentImage.Changed = true;
                 }
-                else return false;
+                else 
+                    return false;
             }
-            else return false;
+            else 
+                return false;
+
             return true;
         }
 
@@ -155,7 +177,7 @@ namespace HaRepacker
             {
                 TryParseImage(reparseImage);
                 this.Nodes.Add(node);
-                addObjInternal((WzObject)node.Tag);
+                AddObjInternal((WzObject)node.Tag);
                 return true;
             }
             else
@@ -191,13 +213,14 @@ namespace HaRepacker
             if (CanNodeBeInserted(this, obj.Name))
             {
                 TryParseImage();
-                if (addObjInternal(obj))
+                if (AddObjInternal(obj))
                 {
                     WzNode node = new WzNode(obj, true);
                     Nodes.Add(node);
-                    if (node.Tag is WzImageProperty)
+
+                    if (node.Tag is WzImageProperty property)
                     {
-                        ((WzImageProperty)node.Tag).ParentImage.Changed = true;
+                        property.ParentImage.Changed = true;
                     }
                     undoRedoMan.AddUndoBatch(new System.Collections.Generic.List<UndoRedoAction> { UndoRedoManager.ObjectAdded(this, node) });
                     node.EnsureVisible();
@@ -235,11 +258,11 @@ namespace HaRepacker
         {
             Text = name;
             ((WzObject)Tag).Name = name;
-            if (Tag is WzImageProperty)
-                ((WzImageProperty)Tag).ParentImage.Changed = true;
+            if (Tag is WzImageProperty property)
+                property.ParentImage.Changed = true;
 
             isWzObjectAddedManually = true;
-            ForeColor = NewObjectForeColor; ;
+            ForeColor = NewObjectForeColor;
         }
 
         public WzNode TopLevelNode

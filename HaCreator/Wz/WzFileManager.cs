@@ -50,7 +50,7 @@ namespace HaCreator.Wz
 
         private string baseDir;
         public Dictionary<string, WzFile> wzFiles = new Dictionary<string, WzFile>();
-        public Dictionary<WzFile, bool> wzFilesUpdated = new Dictionary<WzFile, bool>();
+        public Dictionary<WzFile, bool> wzFilesUpdated = new Dictionary<WzFile, bool>(); // flag for the list of WZ files changed to be saved later via Repack 
         public HashSet<WzImage> updatedImages = new HashSet<WzImage>();
         public Dictionary<string, WzMainDirectory> wzDirs = new Dictionary<string, WzMainDirectory>();
         private WzMapleVersion version;
@@ -91,8 +91,12 @@ namespace HaCreator.Wz
             {
                 WzFile wzf = new WzFile(Path.Combine(baseDir, Capitalize(name) + ".wz"), version);
 
-                string parseErrorMessage = string.Empty;
-                bool parseSuccess = wzf.ParseWzFile(out parseErrorMessage);
+                WzFileParseStatus parseStatus = wzf.ParseWzFile();
+                if (parseStatus != WzFileParseStatus.Success)
+                {
+                    MessageBox.Show("Error parsing " + name + ".wz (" + parseStatus.GetErrorDescription() + ")");
+                    return false;
+                }
 
                 name = name.ToLower();
                 wzFiles[name] = wzf;
@@ -100,7 +104,7 @@ namespace HaCreator.Wz
                 wzDirs[name] = new WzMainDirectory(wzf);
                 return true;
             }
-            catch (Exception e)
+            catch (Exception)
             {
                 //HaRepackerLib.Warning.Error("Error initializing " + name + ".wz (" + e.Message + ").\r\nCheck that the directory is valid and the file is not in use.");
                 return false;
@@ -112,9 +116,13 @@ namespace HaCreator.Wz
             try
             {
                 WzFile wzf = new WzFile(Path.Combine(baseDir, Capitalize(name) + ".wz"), version);
-
-                string parseErrorMessage = string.Empty;
-                bool parseSuccess = wzf.ParseWzFile(out parseErrorMessage);
+                
+                WzFileParseStatus parseStatus = wzf.ParseWzFile();
+                if (parseStatus != WzFileParseStatus.Success)
+                {
+                    MessageBox.Show("Error parsing " + name + ".wz (" + parseStatus.GetErrorDescription() + ")");
+                    return false;
+                }
 
                 name = name.ToLower();
                 wzFiles[name] = wzf;
@@ -234,9 +242,24 @@ namespace HaCreator.Wz
                     soundImage.ParseImage();
                 try
                 {
-                    foreach (WzBinaryProperty bgm in soundImage.WzProperties)
+                    foreach (WzImageProperty bgmImage in soundImage.WzProperties)
                     {
-                        Program.InfoManager.BGMs[WzInfoTools.RemoveExtension(soundImage.Name) + @"/" + bgm.Name] = bgm;
+                        WzBinaryProperty binProperty = null;
+                        if (bgmImage is WzBinaryProperty bgm)
+                        {
+                            binProperty = bgm;
+                        } 
+                        else if (bgmImage is WzUOLProperty uolBGM) // is UOL property
+                        {
+                            WzObject linkVal = ((WzUOLProperty)bgmImage).LinkValue;
+                            if (linkVal is WzBinaryProperty linkCanvas)
+                            {
+                                binProperty = linkCanvas;
+                            }
+                        }
+
+                        if (binProperty != null)
+                            Program.InfoManager.BGMs[WzInfoTools.RemoveExtension(soundImage.Name) + @"/" + binProperty.Name] = binProperty;
                     }
                 }
                 catch (Exception e) 
@@ -336,6 +359,7 @@ namespace HaCreator.Wz
                 Program.InfoManager.PortalTypeById.Add(portal.Name);
                 PortalInfo.Load(portal);
             }
+
             WzSubProperty gameParent = (WzSubProperty)portalParent["game"]["pv"];
             foreach (WzImageProperty portal in gameParent.WzProperties)
             {
@@ -371,7 +395,10 @@ namespace HaCreator.Wz
                         }
                         Program.InfoManager.GamePortals.Add(portal.Name, new PortalGameImageInfo(defaultImage, images));
                     }
-                    catch (InvalidCastException) { continue; } //nexon likes to toss ints in here zType etc
+                    catch (InvalidCastException) 
+                    { 
+                        continue; 
+                    } //nexon likes to toss ints in here zType etc
                 }
             }
 

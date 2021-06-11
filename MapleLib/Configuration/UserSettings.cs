@@ -34,7 +34,7 @@ namespace MapleLib.Configuration
         public bool AutoAssociate = true;
 
         [JsonProperty(PropertyName = "Sort")]
-        public bool Sort = true;
+        public bool Sort = false;
 
         [JsonProperty(PropertyName = "SuppressWarnings")]
         public bool SuppressWarnings = false;
@@ -66,6 +66,8 @@ namespace MapleLib.Configuration
         // Settings not shown on the settings page
         [JsonProperty(PropertyName = "EnableCrossHairDebugInformation")]
         public bool EnableCrossHairDebugInformation = true;
+        [JsonProperty(PropertyName = "EnableBorderDebugInformation")]
+        public bool EnableBorderDebugInformation = true;
 
         [JsonProperty(PropertyName = "ImageZoomLevel")]
         public double ImageZoomLevel = 3.0f;

@@ -7,6 +7,7 @@
 using HaCreator.MapEditor.Instance;
 using HaCreator.MapEditor.Instance.Shapes;
 using HaCreator.Wz;
+using MapleLib.Helpers;
 using MapleLib.WzLib;
 using MapleLib.WzLib.WzProperties;
 using MapleLib.WzLib.WzStructure;
@@ -44,14 +45,32 @@ namespace HaCreator.MapEditor.Info
 
         public static ObjectInfo Get(string oS, string l0, string l1, string l2)
         {
-            try
+            if (!Program.InfoManager.ObjectSets.ContainsKey(oS))
             {
-            WzImageProperty objInfoProp = Program.InfoManager.ObjectSets[oS][l0][l1][l2];
-            if (objInfoProp.HCTag == null)
-                objInfoProp.HCTag = ObjectInfo.Load((WzSubProperty)objInfoProp, oS, l0, l1, l2);
-            return (ObjectInfo)objInfoProp.HCTag;
+                string logError = string.Format("Background object Map.wz/Obj/{0}/{1}/{2}/{3} not found.", oS, l0, l1, l2);
+                MapleLib.Helpers.ErrorLogger.Log(ErrorLevel.IncorrectStructure, logError);
+                return null;
             }
-            catch (KeyNotFoundException e) { return null; }
+            WzImageProperty objInfoProp = Program.InfoManager.ObjectSets[oS]?[l0]?[l1]?[l2];
+            if (objInfoProp == null)
+            {
+                string logError = string.Format("Background object Map.wz/Obj/{0}/{1}/{2}/{3} not found.", oS, l0, l1, l2);
+                MapleLib.Helpers.ErrorLogger.Log(ErrorLevel.IncorrectStructure, logError);
+                return null;
+            }
+
+            if (objInfoProp.HCTag == null)
+            {
+                try
+                {
+                    objInfoProp.HCTag = ObjectInfo.Load((WzSubProperty)objInfoProp, oS, l0, l1, l2);
+                }
+                catch (KeyNotFoundException)
+                {
+                    return null;
+                }
+            }
+            return (ObjectInfo)objInfoProp.HCTag;
         }
 
         private static List<XNA.Point> ParsePropToOffsetList(WzImageProperty prop)
@@ -81,7 +100,8 @@ namespace HaCreator.MapEditor.Info
                     {
                         result.Add(ParsePropToOffsetList(offsetSet));
                     }
-                }catch(InvalidCastException exc) {  }
+                }
+                catch (InvalidCastException) { }
             }
             else
             {
@@ -94,12 +114,12 @@ namespace HaCreator.MapEditor.Info
         {
             WzCanvasProperty frame1 = (WzCanvasProperty)WzInfoTools.GetRealProperty(parentObject["0"]);
             ObjectInfo result = new ObjectInfo(
-                frame1.GetLinkedWzCanvasBitmap(), 
-                WzInfoTools.PointFToSystemPoint(frame1.GetCanvasOriginPosition()), 
-                oS, 
-                l0, 
-                l1, 
-                l2, 
+                frame1.GetLinkedWzCanvasBitmap(),
+                WzInfoTools.PointFToSystemPoint(frame1.GetCanvasOriginPosition()),
+                oS,
+                l0,
+                l1,
+                l2,
                 parentObject);
             WzImageProperty chairs = parentObject["seat"];
             WzImageProperty ropes = frame1["rope"];

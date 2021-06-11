@@ -6,6 +6,7 @@
 
 using HaCreator.MapEditor.Instance.Shapes;
 using HaCreator.MapSimulator;
+using HaSharedLibrary.Render.DX;
 using System;
 using System.Collections.Generic;
 using System.ComponentModel;
@@ -13,6 +14,7 @@ using System.Data;
 using System.Drawing;
 using System.Linq;
 using System.Text;
+using System.Windows.Controls;
 using System.Windows.Forms;
 
 namespace HaCreator.GUI
@@ -30,13 +32,6 @@ namespace HaCreator.GUI
             fixFh.Checked = UserSettings.FixFootholdMispositions;
             invertUpDownBox.Checked = UserSettings.InverseUpDown;
             autoBackupBox.Checked = UserSettings.BackupEnabled;
-
-            // Resolutions
-            foreach (MapRenderResolution val in Enum.GetValues(typeof(MapRenderResolution)))
-            {
-                comboBox_resolution.Items.Add(val.ToString().Replace("Res_", "").Replace("_", " ").Replace("PercScaled", "% scale"));
-            }
-            comboBox_resolution.SelectedIndex = (int)UserSettings.SimulateResolution;
 
             tabColorPicker.Color = UserSettings.TabColor;
             dragColorPicker.Color = XNAToSystemColor(UserSettings.SelectSquare);
@@ -99,7 +94,6 @@ namespace HaCreator.GUI
             UserSettings.DotWidth = (int)dotwBox.Value;
             MapleDot.OnDotWidthChanged(); // Update DotWidth in dots to avoid requiring a restart
             UserSettings.NonActiveAlpha = (int)inactiveaBox.Value;
-            UserSettings.SimulateResolution = (MapRenderResolution) comboBox_resolution.SelectedIndex;  // combo box selection. 800x600, 1024x768, 1280x720, 1920x1080
             UserSettings.ClipText = clipBox.Checked;
             UserSettings.FixFootholdMispositions = fixFh.Checked;
             UserSettings.InverseUpDown = invertUpDownBox.Checked;
@@ -124,7 +118,9 @@ namespace HaCreator.GUI
             UserSettings.MiscSelectedFill = SystemToXNAColor(miscSelectedColorPicker.Color);
             UserSettings.OriginColor = SystemToXNAColor(originColorPicker.Color);
             UserSettings.MinimapBoundColor = SystemToXNAColor(minimapColorPicker.Color);
-            
+
+            UserSettings.FontName = fontName.Text;
+            UserSettings.FontSize = (int) fontSize.Value;
             UserSettings.HiddenLifeR = (int)rInput.Value;
             UserSettings.Mobrx0Offset = (int)mobrx0Box.Value;
             UserSettings.Mobrx1Offset = (int)mobrx1Box.Value;

@@ -1,4 +1,6 @@
-﻿namespace HaCreator.GUI.EditorPanels
+﻿using HaCreator.CustomControls;
+
+namespace HaCreator.GUI.EditorPanels
 {
     partial class TilePanel
     {
@@ -32,7 +34,7 @@
             this.splitContainer2 = new System.Windows.Forms.SplitContainer();
             this.tileBrowse = new System.Windows.Forms.Button();
             this.tileSetList = new System.Windows.Forms.ListBox();
-            this.tileImagesContainer = new HaCreator.ThirdParty.ThumbnailFlowLayoutPanel();
+            this.tileImagesContainer = new ThumbnailFlowLayoutPanel();
             ((System.ComponentModel.ISupportInitialize)(this.splitContainer1)).BeginInit();
             this.splitContainer1.Panel1.SuspendLayout();
             this.splitContainer1.Panel2.SuspendLayout();
@@ -105,10 +107,12 @@
             this.tileImagesContainer.AutoScroll = true;
             this.tileImagesContainer.BackColor = System.Drawing.Color.White;
             this.tileImagesContainer.Dock = System.Windows.Forms.DockStyle.Fill;
+            this.tileImagesContainer.FlowDirection = System.Windows.Forms.FlowDirection.TopDown;
             this.tileImagesContainer.Location = new System.Drawing.Point(0, 0);
             this.tileImagesContainer.Name = "tileImagesContainer";
             this.tileImagesContainer.Size = new System.Drawing.Size(284, 471);
             this.tileImagesContainer.TabIndex = 0;
+            this.tileImagesContainer.WrapContents = false;
             // 
             // TilePanel
             // 
@@ -136,10 +140,6 @@
         private System.Windows.Forms.SplitContainer splitContainer2;
         private System.Windows.Forms.Button tileBrowse;
         private System.Windows.Forms.ListBox tileSetList;
-        private ThirdParty.ThumbnailFlowLayoutPanel tileImagesContainer;
-
-
-
-
+        private ThumbnailFlowLayoutPanel tileImagesContainer;
     }
 }

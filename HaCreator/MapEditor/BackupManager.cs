@@ -22,7 +22,7 @@ namespace HaCreator.MapEditor
 
         private InputHandler input;
         private MultiBoard multiBoard;
-        private HaCreatorStateManager hcsm;
+        private readonly HaCreatorStateManager hcsm;
         private System.Windows.Controls.TabControl tabs;
         private bool enabled = false;
 
@@ -167,7 +167,7 @@ namespace HaCreator.MapEditor
                 {
                     if (Path.GetExtension(file.Key) != ".ham")
                         continue;
-                    new MapLoader().CreateMapFromHam(multiBoard, tabs, file.Value, hcsm.MakeRightClickHandler());
+                    MapLoader.CreateMapFromHam(multiBoard, tabs, file.Value, hcsm.MakeRightClickHandler());
                 }
             }
             ClearBackups();

@@ -10,7 +10,7 @@
     <AppDesignerFolder>Properties</AppDesignerFolder>
     <RootNamespace>HaCreator</RootNamespace>
     <AssemblyName>HaCreator</AssemblyName>
-    <TargetFrameworkVersion>v4.7.2</TargetFrameworkVersion>
+    <TargetFrameworkVersion>v4.8</TargetFrameworkVersion>
     <FileAlignment>512</FileAlignment>
     <FileUpgradeFlags>
     </FileUpgradeFlags>
@@ -20,7 +20,7 @@
     </TargetFrameworkProfile>
     <ApplicationIcon>HaLogo.ico</ApplicationIcon>
     <IsWebBootstrapper>false</IsWebBootstrapper>
-    <PublishUrl>publish\</PublishUrl>
+    <PublishUrl>C:\Users\User\Desktop\publish\</PublishUrl>
     <Install>true</Install>
     <InstallFrom>Disk</InstallFrom>
     <UpdateEnabled>false</UpdateEnabled>
@@ -30,9 +30,10 @@
     <UpdatePeriodically>false</UpdatePeriodically>
     <UpdateRequired>false</UpdateRequired>
     <MapFileExtensions>true</MapFileExtensions>
-    <ApplicationRevision>0</ApplicationRevision>
+    <ApplicationRevision>1</ApplicationRevision>
     <ApplicationVersion>1.0.0.%2a</ApplicationVersion>
     <UseApplicationTrust>false</UseApplicationTrust>
+    <PublishWizardCompleted>true</PublishWizardCompleted>
     <BootstrapperEnabled>true</BootstrapperEnabled>
   </PropertyGroup>
   <PropertyGroup Condition=" '$(Configuration)|$(Platform)' == 'Debug|x86' ">
@@ -122,6 +123,18 @@
   <PropertyGroup>
     <ApplicationManifest>app.manifest</ApplicationManifest>
   </PropertyGroup>
+  <PropertyGroup>
+    <SignManifests>false</SignManifests>
+  </PropertyGroup>
+  <PropertyGroup>
+    <ManifestCertificateThumbprint>92BDF5A49B95221059718A85DF060FA1DFD1B7CE</ManifestCertificateThumbprint>
+  </PropertyGroup>
+  <PropertyGroup>
+    <ManifestKeyFile>HaCreator_TemporaryKey.pfx</ManifestKeyFile>
+  </PropertyGroup>
+  <PropertyGroup>
+    <GenerateManifests>true</GenerateManifests>
+  </PropertyGroup>
   <ItemGroup>
     <Reference Include="Microsoft.Build.Framework" />
     <Reference Include="Microsoft.CSharp" />
@@ -157,6 +170,7 @@
     </Compile>
     <Compile Include="Exceptions\DeserializationException.cs" />
     <Compile Include="Exceptions\NameAlreadyUsedException.cs" />
+    <Compile Include="Exceptions\NoVRException.cs" />
     <Compile Include="GUI\HaEditor.xaml.cs">
       <DependentUpon>HaEditor.xaml</DependentUpon>
     </Compile>
@@ -259,6 +273,12 @@
     <Compile Include="GUI\ManageUserObjects.Designer.cs">
       <DependentUpon>ManageUserObjects.cs</DependentUpon>
     </Compile>
+    <Compile Include="GUI\MapPhysicsEditor.cs">
+      <SubType>Form</SubType>
+    </Compile>
+    <Compile Include="GUI\MapPhysicsEditor.Designer.cs">
+      <DependentUpon>MapPhysicsEditor.cs</DependentUpon>
+    </Compile>
     <Compile Include="GUI\New.cs">
       <SubType>Form</SubType>
     </Compile>
@@ -299,6 +319,7 @@
     <Compile Include="Collections\IMapleList.cs" />
     <Compile Include="Collections\MapleList.cs" />
     <Compile Include="MapEditor\Info\BackgroundInfo.cs" />
+    <Compile Include="MapEditor\Info\BackgroundInfoType.cs" />
     <Compile Include="MapEditor\Info\MapleExtractableInfo.cs" />
     <Compile Include="MapEditor\Info\MapleDrawableInfo.cs" />
     <Compile Include="MapEditor\Info\MobInfo.cs" />
@@ -377,22 +398,34 @@
     <Compile Include="MapEditor\UndoRedo\UndoRedoAction.cs" />
     <Compile Include="MapEditor\UndoRedo\UndoRedoBatch.cs" />
     <Compile Include="MapEditor\UserObjectsManager.cs" />
-    <Compile Include="MapSimulator\DX\BackgroundItem.cs" />
-    <Compile Include="MapSimulator\DX\MapItem.cs" />
+    <Compile Include="MapSimulator\MapObjects\FieldObject\BackgroundItem.cs" />
+    <Compile Include="MapSimulator\MapObjects\FieldObject\MobItem.cs" />
+    <Compile Include="MapSimulator\MapObjects\FieldObject\TooltipItem.cs" />
+    <Compile Include="MapSimulator\MapObjects\UIObject\UIObject.cs" />
+    <Compile Include="MapSimulator\MapObjects\UIObject\UIObjectButtonEventHandler.cs" />
+    <Compile Include="MapSimulator\MapObjects\UIObject\UIObjectState.cs" />
+    <Compile Include="MapSimulator\MapObjects\UIObject\IUIObjectEvents.cs" />
+    <Compile Include="MapSimulator\MapObjects\UIObject\MinimapItem.cs" />
+    <Compile Include="MapSimulator\MapObjects\UIObject\MouseCursorItem.cs" />
+    <Compile Include="MapSimulator\MapObjects\FieldObject\NpcItem.cs" />
+    <Compile Include="MapSimulator\MapObjects\UIObject\UIObjectViewModelBase.cs" />
     <Compile Include="MapSimulator\MapSimulator.cs" />
     <Compile Include="MapSimulator\MapSimulatorLoader.cs" />
-    <Compile Include="MapSimulator\MapRenderResolution.cs" />
     <Compile Include="GUI\TabItemContainer.cs" />
-    <Compile Include="ThirdParty\ColorDialog.xaml.cs">
+    <Compile Include="MapSimulator\MapObjects\FieldObject\PortalItem.cs" />
+    <Compile Include="MapSimulator\MapObjects\FieldObject\ReactorItem.cs" />
+    <Compile Include="MapSimulator\TexturePool.cs" />
+    <Compile Include="MapSimulator\UIFrameHelper.cs" />
+    <Compile Include="CustomControls\ColorDialog.xaml.cs">
       <DependentUpon>ColorDialog.xaml</DependentUpon>
     </Compile>
-    <Compile Include="ThirdParty\ColorPicker.xaml.cs">
+    <Compile Include="CustomControls\ColorPicker.xaml.cs">
       <DependentUpon>ColorPicker.xaml</DependentUpon>
     </Compile>
-    <Compile Include="ThirdParty\ImageViewer.cs">
+    <Compile Include="CustomControls\ImageViewer.cs">
       <SubType>UserControl</SubType>
     </Compile>
-    <Compile Include="ThirdParty\ImageViewer.Designer.cs">
+    <Compile Include="CustomControls\ImageViewer.Designer.cs">
       <DependentUpon>ImageViewer.cs</DependentUpon>
     </Compile>
     <Compile Include="GUI\About.cs">
@@ -404,7 +437,7 @@
     <Compile Include="CustomControls\AlphaColorPicker.cs">
       <SubType>UserControl</SubType>
     </Compile>
-    <Compile Include="ThirdParty\BetterCheckedListBox.cs">
+    <Compile Include="CustomControls\BetterCheckedListBox.cs">
       <SubType>Component</SubType>
     </Compile>
     <Compile Include="GUI\InstanceEditor\BackgroundInstanceEditor.cs">
@@ -486,7 +519,7 @@
     <Compile Include="GUI\Initialization.designer.cs">
       <DependentUpon>Initialization.cs</DependentUpon>
     </Compile>
-    <Compile Include="ThirdParty\ThumbnailFlowLayoutPanel.cs">
+    <Compile Include="CustomControls\ThumbnailFlowLayoutPanel.cs">
       <SubType>Component</SubType>
     </Compile>
     <Compile Include="GUI\Load.cs">
@@ -508,7 +541,6 @@
     <Compile Include="MapEditor\Instance\ISnappable.cs" />
     <Compile Include="MapEditor\Layer.cs" />
     <Compile Include="MapEditor\Input\Mouse.cs" />
-    <Compile Include="MapSimulator\DX\DXObject.cs" />
     <Compile Include="Program.cs" />
     <Compile Include="Properties\AssemblyInfo.cs" />
     <Compile Include="Collections\AnchorEnumerator.cs" />
@@ -624,6 +656,9 @@
     <EmbeddedResource Include="GUI\ManageUserObjects.resx">
       <DependentUpon>ManageUserObjects.cs</DependentUpon>
     </EmbeddedResource>
+    <EmbeddedResource Include="GUI\MapPhysicsEditor.resx">
+      <DependentUpon>MapPhysicsEditor.cs</DependentUpon>
+    </EmbeddedResource>
     <EmbeddedResource Include="GUI\New.resx">
       <DependentUpon>New.cs</DependentUpon>
     </EmbeddedResource>
@@ -642,6 +677,8 @@
     <EmbeddedResource Include="GUI\WaitWindow.resx">
       <DependentUpon>WaitWindow.cs</DependentUpon>
     </EmbeddedResource>
+    <EmbeddedResource Include="Properties\Resources.ja.resx" />
+    <EmbeddedResource Include="Properties\Resources.ko.resx" />
     <EmbeddedResource Include="Properties\Resources.resx">
       <Generator>ResXFileCodeGenerator</Generator>
       <LastGenOutput>Resources.Designer.cs</LastGenOutput>
@@ -671,32 +708,34 @@
       <DependentUpon>TileSetBrowser.cs</DependentUpon>
     </Compile>
     <Compile Include="WzSettings.cs" />
-    <EmbeddedResource Include="ThirdParty\BetterCheckedListBox.resx">
+    <EmbeddedResource Include="CustomControls\BetterCheckedListBox.resx">
       <DependentUpon>BetterCheckedListBox.cs</DependentUpon>
     </EmbeddedResource>
-    <EmbeddedResource Include="ThirdParty\ImageViewer.resx">
+    <EmbeddedResource Include="CustomControls\ImageViewer.resx">
       <DependentUpon>ImageViewer.cs</DependentUpon>
     </EmbeddedResource>
-    <EmbeddedResource Include="ThirdParty\ThumbnailFlowLayoutPanel.resx">
+    <EmbeddedResource Include="CustomControls\ThumbnailFlowLayoutPanel.resx">
       <DependentUpon>ThumbnailFlowLayoutPanel.cs</DependentUpon>
     </EmbeddedResource>
+    <EmbeddedResource Include="Properties\Resources.zh-CHS.resx" />
+    <EmbeddedResource Include="Properties\Resources.zh-CHT.resx" />
   </ItemGroup>
   <ItemGroup>
     <ProjectReference Include="..\HaRepacker\Harepacker-resurrected.csproj">
       <Project>{0b7155ef-1eb0-4fae-ba56-8064cbaf2bea}</Project>
       <Name>Harepacker-resurrected</Name>
     </ProjectReference>
-    <ProjectReference Include="..\HaSharedLirary\HaSharedLibrary.csproj">
-      <Project>{5411388B-F3CB-4D52-9F55-ABD15CFE966C}</Project>
+    <ProjectReference Include="..\HaSharedLibrary\HaSharedLibrary.csproj">
+      <Project>{5411388b-f3cb-4d52-9f55-abd15cfe966c}</Project>
       <Name>HaSharedLibrary</Name>
     </ProjectReference>
     <ProjectReference Include="..\MapleLib\MapleLib.csproj">
       <Project>{28AAB36D-942E-4476-A000-0E9DE380F390}</Project>
       <Name>MapleLib</Name>
     </ProjectReference>
-    <ProjectReference Include="..\spine-runtimes-2.1.25\spine-csharp\spine-csharp.csproj">
+    <ProjectReference Include="..\spine-runtimes-2.1.25\spine-csharp\spine-csharp 2.1.25.csproj">
       <Project>{94144E22-2431-4A8F-AC04-DEC22F7EDD8F}</Project>
-      <Name>spine-csharp</Name>
+      <Name>spine-csharp 2.1.25</Name>
     </ProjectReference>
   </ItemGroup>
   <ItemGroup>
@@ -725,6 +764,11 @@
     <Resource Include="Images\ColorSwatchSquare2.png" />
   </ItemGroup>
   <ItemGroup>
+    <BootstrapperPackage Include=".NETFramework,Version=v4.7.2">
+      <Visible>False</Visible>
+      <ProductName>Microsoft .NET Framework 4.7.2 %28x86 and x64%29</ProductName>
+      <Install>true</Install>
+    </BootstrapperPackage>
     <BootstrapperPackage Include="Microsoft.Net.Client.3.5">
       <Visible>False</Visible>
       <ProductName>.NET Framework 3.5 SP1 Client Profile</ProductName>
@@ -733,7 +777,7 @@
     <BootstrapperPackage Include="Microsoft.Net.Framework.3.5.SP1">
       <Visible>False</Visible>
       <ProductName>.NET Framework 3.5 SP1</ProductName>
-      <Install>true</Install>
+      <Install>false</Install>
     </BootstrapperPackage>
     <BootstrapperPackage Include="Microsoft.Windows.Installer.3.1">
       <Visible>False</Visible>
@@ -758,11 +802,11 @@
       <SubType>Designer</SubType>
       <Generator>MSBuild:Compile</Generator>
     </Page>
-    <Page Include="ThirdParty\ColorDialog.xaml">
+    <Page Include="CustomControls\ColorDialog.xaml">
       <Generator>MSBuild:Compile</Generator>
       <SubType>Designer</SubType>
     </Page>
-    <Page Include="ThirdParty\ColorPicker.xaml">
+    <Page Include="CustomControls\ColorPicker.xaml">
       <Generator>MSBuild:Compile</Generator>
       <SubType>Designer</SubType>
     </Page>
@@ -791,10 +835,40 @@
       <Version>3.0.6</Version>
     </PackageReference>
     <PackageReference Include="MonoGame.Framework.WindowsDX">
-      <Version>3.7.1.189</Version>
+      <Version>3.8.0.1641</Version>
+    </PackageReference>
+    <PackageReference Include="NAudio">
+      <Version>2.0.0</Version>
     </PackageReference>
     <PackageReference Include="Newtonsoft.Json">
       <Version>12.0.3</Version>
+    </PackageReference>
+    <PackageReference Include="SharpDX">
+      <Version>4.2.0</Version>
+    </PackageReference>
+    <PackageReference Include="SharpDX.Direct2D1">
+      <Version>4.2.0</Version>
+    </PackageReference>
+    <PackageReference Include="SharpDX.Direct3D11">
+      <Version>4.2.0</Version>
+    </PackageReference>
+    <PackageReference Include="SharpDX.Direct3D9">
+      <Version>4.2.0</Version>
+    </PackageReference>
+    <PackageReference Include="SharpDX.DXGI">
+      <Version>4.2.0</Version>
+    </PackageReference>
+    <PackageReference Include="SharpDX.Mathematics">
+      <Version>4.2.0</Version>
+    </PackageReference>
+    <PackageReference Include="SharpDX.MediaFoundation">
+      <Version>4.2.0</Version>
+    </PackageReference>
+    <PackageReference Include="SharpDX.XAudio2">
+      <Version>4.2.0</Version>
+    </PackageReference>
+    <PackageReference Include="SharpDX.XInput">
+      <Version>4.2.0</Version>
     </PackageReference>
   </ItemGroup>
   <ItemGroup>
@@ -809,8 +883,10 @@
     <Content Include="HaLogo\HaLogo48.png" />
     <Content Include="HaLogo\HaLogo512.png" />
     <Content Include="HaLogo\HaLogo64.png" />
+    <Resource Include="Images\box_edit-big.png" />
     <None Include="Resources\placeholder.bmp" />
   </ItemGroup>
+  <ItemGroup />
   <Import Project="$(MSBuildToolsPath)\Microsoft.CSharp.targets" />
   <!-- To modify your build process, add your task inside one of the targets below and uncomment it. 
        Other similar extension points exist, see Microsoft.Common.targets.

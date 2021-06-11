@@ -18,6 +18,7 @@ using System;
 using System.Collections;
 using System.Diagnostics;
 using System.IO;
+using System.Runtime.CompilerServices;
 using MapleLib.Configuration;
 using MapleLib.MapleCryptoLib;
 using MapleLib.PacketLib;
@@ -111,9 +112,9 @@ namespace MapleLib.WzLib.Util
             switch (ver)
             {
                 case WzMapleVersion.EMS:
-                    return CryptoConstants.WZ_MSEAIV;//?
+                    return MapleCryptoConstants.WZ_MSEAIV;//?
                 case WzMapleVersion.GMS:
-                    return CryptoConstants.WZ_GMSIV;
+                    return MapleCryptoConstants.WZ_GMSIV;
                 case WzMapleVersion.CUSTOM: // custom WZ encryption bytes from stored app setting
                     {
                         ConfigurationManager config = new ConfigurationManager();
@@ -138,20 +139,21 @@ namespace MapleLib.WzLib.Util
             return result;
         }
 
-        
+
         /// <summary>
         /// Attempts to bruteforce the WzKey with a given WZ file
         /// </summary>
         /// <param name="wzPath"></param>
         /// <param name="wzIvKey"></param>
         /// <returns>The probability. Normalized to 100</returns>
+        [MethodImpl(MethodImplOptions.AggressiveInlining)]
         public static bool TryBruteforcingWzIVKey(string wzPath, byte[] wzIvKey)
         {
             using (WzFile wzf = new WzFile(wzPath, wzIvKey))
             {
                 string parseErrorMessage = string.Empty;
-                bool parsedSuccessfully = wzf.LazyParseWzFile(out parseErrorMessage);
-                if (!parsedSuccessfully)
+                WzFileParseStatus parseStatus = wzf.ParseMainWzDirectory(true);
+                if (parseStatus != WzFileParseStatus.Success)
                 {
                     wzf.Dispose();
                     return false;
@@ -175,8 +177,11 @@ namespace MapleLib.WzLib.Util
             else
                 wzf = new WzFile(wzPath, (short)version, encVersion);
 
-            string parseErrorMessage = string.Empty;
-            bool parsedSuccessfully = wzf.ParseWzFile(out parseErrorMessage);
+            WzFileParseStatus parseStatus = wzf.ParseWzFile();
+            if (parseStatus != WzFileParseStatus.Success)
+            {
+                return 0.0d;
+            }
 
             if (version == null) version = wzf.Version;
             int recognizedChars = 0;
@@ -245,7 +250,6 @@ namespace MapleLib.WzLib.Util
                 byte firstByte = reader.ReadByte();
 
                 result = firstByte == WzImage.WzImageHeaderByte; // check the first byte. It should be 0x73 that represends a WzImage
-                reader.Close();
             }
 
             return result;

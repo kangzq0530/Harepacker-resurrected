@@ -12,20 +12,22 @@ using System.IO;
 using MapleLib.WzLib.Util;
 using System.Diagnostics;
 using HaRepacker.GUI.Panels;
+using MapleLib.MapleCryptoLib;
+using System.Linq;
 
 namespace HaRepacker.GUI
 {
     public partial class SaveForm : Form
     {
-        private WzNode wzNode;
+        private readonly WzNode wzNode;
 
-        private WzFile wzf; // it can either be a WzImage or a WzFile only.
-        private WzImage wzImg; // it can either be a WzImage or a WzFile only.
+        private readonly WzFile wzf; // it can either be a WzImage or a WzFile only.
+        private readonly WzImage wzImg; // it can either be a WzImage or a WzFile only.
 
-        private bool IsRegularWzFile = false; // or data.wz
+        private readonly bool IsRegularWzFile = false; // or data.wz
 
         public string path;
-        private MainPanel panel;
+        private readonly MainPanel panel;
 
 
         private bool bIsLoading = false;
@@ -85,6 +87,24 @@ namespace HaRepacker.GUI
         }
 
         /// <summary>
+        /// Process command key on the form
+        /// </summary>
+        /// <param name="msg"></param>
+        /// <param name="keyData"></param>
+        /// <returns></returns>
+        protected override bool ProcessCmdKey(ref Message msg, Keys keyData)
+        {
+            // ...
+            if (keyData == (Keys.Escape))
+            {
+                Close(); // exit window
+                return true;
+            }
+            return base.ProcessCmdKey(ref msg, keyData);
+        }
+
+
+        /// <summary>
         /// On encryption box selection changed
         /// </summary>
         /// <param name="sender"></param>
@@ -100,6 +120,9 @@ namespace HaRepacker.GUI
             {
                 CustomWZEncryptionInputBox customWzInputBox = new CustomWZEncryptionInputBox();
                 customWzInputBox.ShowDialog();
+            } else
+            {
+                MapleCryptoConstants.UserKey_WzLib = MapleCryptoConstants.MAPLESTORY_USERKEY_DEFAULT.ToArray();
             }
         }
 
@@ -108,7 +131,7 @@ namespace HaRepacker.GUI
         /// </summary>
         /// <param name="sender"></param>
         /// <param name="e"></param>
-        private void saveButton_Click(object sender, EventArgs e)
+        private void SaveButton_Click(object sender, EventArgs e)
         {
             if (versionBox.Value < 0)
             {
@@ -130,32 +153,32 @@ namespace HaRepacker.GUI
                 WzMapleVersion wzMapleVersionSelected = MainForm.GetWzMapleVersionByWzEncryptionBoxSelection(encryptionBox.SelectedIndex); // new encryption selected
                 if (this.IsRegularWzFile)
                 {
-                    if (wzf is WzFile && wzf.MapleVersion != wzMapleVersionSelected)
-                        PrepareAllImgs(((WzFile)wzf).WzDirectory);
+                    if (wzf is WzFile file && wzf.MapleVersion != wzMapleVersionSelected)
+                        PrepareAllImgs(file.WzDirectory);
 
                     wzf.MapleVersion = wzMapleVersionSelected;
-                    if (wzf is WzFile)
+                    if (wzf is WzFile file1)
                     {
-                        ((WzFile)wzf).Version = (short)versionBox.Value;
+                        file1.Version = (short)versionBox.Value;
                     }
 
                     if (wzf.FilePath != null && wzf.FilePath.ToLower() == dialog.FileName.ToLower())
                     {
                         wzf.SaveToDisk(dialog.FileName + "$tmp", wzMapleVersionSelected);
-                        wzNode.Delete();
+                        wzNode.DeleteWzNode();
                         File.Delete(dialog.FileName);
                         File.Move(dialog.FileName + "$tmp", dialog.FileName);
                     }
                     else
                     {
                         wzf.SaveToDisk(dialog.FileName, wzMapleVersionSelected);
-                        wzNode.Delete();
+                        wzNode.DeleteWzNode();
                     }
 
                     // Reload the new file
-                    WzFile loadedWzFile = Program.WzMan.LoadWzFile(dialog.FileName, wzMapleVersionSelected);
+                    WzFile loadedWzFile = Program.WzFileManager.LoadWzFile(dialog.FileName, wzMapleVersionSelected);
                     if (loadedWzFile != null)
-                        Program.WzMan.AddLoadedWzFileToMainPanel(loadedWzFile, panel);
+                        Program.WzFileManager.AddLoadedWzFileToMainPanel(loadedWzFile, panel);
                 }
                 else
                 {
@@ -184,7 +207,7 @@ namespace HaRepacker.GUI
                         {
                             Debug.WriteLine(exp); // nvm, dont show to user
                         }
-                        wzNode.Delete();
+                        wzNode.DeleteWzNode();
                     }
                     catch (UnauthorizedAccessException)
                     {
@@ -192,7 +215,7 @@ namespace HaRepacker.GUI
                     }
 
                     // Reload the new file
-                    WzImage img = Program.WzMan.LoadDataWzHotfixFile(dialog.FileName, wzMapleVersionSelected, panel);
+                    WzImage img = Program.WzFileManager.LoadDataWzHotfixFile(dialog.FileName, wzMapleVersionSelected, panel);
                     if (img == null || error_noAdminPriviledge)
                     {
                         MessageBox.Show(HaRepacker.Properties.Resources.MainFileOpenFail, HaRepacker.Properties.Resources.Error);

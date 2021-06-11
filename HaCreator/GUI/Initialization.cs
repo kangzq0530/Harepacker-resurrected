@@ -16,6 +16,7 @@ using MapleLib.WzLib.Util;
 using HaCreator.Wz;
 using MapleLib.WzLib.WzStructure;
 using MapleLib.Helpers;
+using HaCreator.MapEditor.Instance;
 
 namespace HaCreator.GUI
 {
@@ -26,10 +27,6 @@ namespace HaCreator.GUI
         public Initialization()
         {
             InitializeComponent();
-
-#if RELEASE
-                debugButton.Visible = false;
-#endif
         }
 
         private bool IsPathCommon(string path)
@@ -237,8 +234,15 @@ namespace HaCreator.GUI
             };
         }
 
+        /// <summary>
+        /// Check map errors
+        /// </summary>
+        /// <param name="sender"></param>
+        /// <param name="e"></param>
         private void debugButton_Click(object sender, EventArgs e)
         {
+            const string OUTPUT_ERROR_FILENAME = "Debug_errors.txt";
+
             // This function iterates over all maps in the game and verifies that we recognize all their props
             // It is meant to use by the developer(s) to speed up the process of adjusting this program for different MapleStory versions
             string wzPath = pathBox.Text;
@@ -247,7 +251,7 @@ namespace HaCreator.GUI
             InitializeWzFiles(wzPath, fileVersion);
 
             MultiBoard mb = new MultiBoard();
-            Board b = new Board(
+            Board mapBoard = new Board(
                 new Microsoft.Xna.Framework.Point(), 
                 new Microsoft.Xna.Framework.Point(), 
                 mb, 
@@ -257,7 +261,6 @@ namespace HaCreator.GUI
 
             foreach (string mapid in Program.InfoManager.Maps.Keys)
             {
-                MapLoader loader = new MapLoader();
                 string mapcat = "Map" + mapid.Substring(0, 1);
 
                 WzImage mapImage = Program.WzManager.FindMapImage(mapid, mapcat);
@@ -271,19 +274,74 @@ namespace HaCreator.GUI
                     mapImage.UnparseImage();
                     continue;
                 }
-                loader.VerifyMapPropsKnown(mapImage, true);
+                MapLoader.VerifyMapPropsKnown(mapImage, true);
                 MapInfo info = new MapInfo(mapImage, null, null, null);
-                loader.LoadMisc(mapImage, b);
-                if (ErrorLogger.ErrorsPresent())
+                try
                 {
-                    ErrorLogger.SaveToFile("debug_errors.txt");
-                    ErrorLogger.ClearErrors();
+                    mapBoard.CreateMapLayers();
+
+                    MapLoader.LoadLayers(mapImage, mapBoard);
+                    MapLoader.LoadLife(mapImage, mapBoard);
+                    MapLoader.LoadFootholds(mapImage, mapBoard);
+                    MapLoader.GenerateDefaultZms(mapBoard);
+                    MapLoader.LoadRopes(mapImage, mapBoard);
+                    MapLoader.LoadChairs(mapImage, mapBoard);
+                    MapLoader.LoadPortals(mapImage, mapBoard);
+                    MapLoader.LoadReactors(mapImage, mapBoard);
+                    MapLoader.LoadToolTips(mapImage, mapBoard);
+                    MapLoader.LoadBackgrounds(mapImage, mapBoard);
+                    MapLoader.LoadMisc(mapImage, mapBoard);
+
+                    //MapLoader.LoadBackgrounds(mapImage, board);
+                    //MapLoader.LoadMisc(mapImage, board);
+
+                    // Check background to ensure that its correct
+                    List<BackgroundInstance> allBackgrounds = new List<BackgroundInstance>();
+                    allBackgrounds.AddRange(mapBoard.BoardItems.BackBackgrounds);
+                    allBackgrounds.AddRange(mapBoard.BoardItems.FrontBackgrounds);
+
+                    foreach (BackgroundInstance bg in allBackgrounds)
+                    {
+                        if (bg.type != MapleLib.WzLib.WzStructure.Data.BackgroundType.Regular)
+                        {
+                            if (bg.cx < 0 || bg.cy < 0)
+                            {
+                                string error = string.Format("Negative CX/ CY moving background object. CX='{0}', CY={1}, Type={2}, {3}{4}", bg.cx, bg.cy, bg.type.ToString(), Environment.NewLine, mapImage.ToString() /*overrides, see WzImage.ToString*/);
+                                ErrorLogger.Log(ErrorLevel.IncorrectStructure, error);
+                            }
+                        }
+                    }
+                    allBackgrounds.Clear();
                 }
-                mapImage.UnparseImage(); // To preserve memory, since this is a very memory intensive test
+                catch (Exception exp)
+                {
+                    string error = string.Format("Exception occured loading {0}{1}{2}{3}{4}", mapcat, Environment.NewLine, mapImage.ToString() /*overrides, see WzImage.ToString*/, Environment.NewLine, exp.ToString());
+                    ErrorLogger.Log(ErrorLevel.Crash, error);
+                } 
+                finally
+                {
+                    mapBoard.Dispose();
+
+                    mapBoard.BoardItems.BackBackgrounds.Clear();
+                    mapBoard.BoardItems.FrontBackgrounds.Clear();
+
+                    mapImage.UnparseImage(); // To preserve memory, since this is a very memory intensive test
+                }
+
+                if (ErrorLogger.NumberOfErrorsPresent() > 200)
+                    ErrorLogger.SaveToFile(OUTPUT_ERROR_FILENAME);
             }
-            MessageBox.Show("Done");
+            ErrorLogger.SaveToFile(OUTPUT_ERROR_FILENAME);
+
+
+            MessageBox.Show(string.Format("Check for map errors completed. See '{0}' for more information.", OUTPUT_ERROR_FILENAME));
         }
 
+        /// <summary>
+        /// Keyboard navigation
+        /// </summary>
+        /// <param name="sender"></param>
+        /// <param name="e"></param>
         private void Initialization_KeyDown(object sender, KeyEventArgs e)
         {
             if (e.KeyCode == Keys.Enter)

@@ -25,17 +25,18 @@ using MapleLib.WzLib.WzProperties;
 using Microsoft.Xna.Framework;
 using Microsoft.Xna.Framework.Graphics;
 using Spine;
+using System.Collections.Generic;
 using System.Drawing;
 using System.Drawing.Imaging;
 using System.Runtime.InteropServices;
-using Texture2D = Microsoft.Xna.Framework.Graphics.Texture2D;
 
 namespace MapleLib.WzLib.Spine
 {
     public class WzSpineTextureLoader : TextureLoader
     {
         public WzObject ParentNode { get; private set; }
-        private GraphicsDevice graphicsDevice;
+        private readonly GraphicsDevice graphicsDevice;
+
 
         public WzSpineTextureLoader(WzObject ParentNode, GraphicsDevice graphicsDevice)
         {
@@ -54,55 +55,39 @@ namespace MapleLib.WzLib.Spine
             if (frameNode == null)
                 return;
 
-
             WzCanvasProperty canvasProperty = null;
 
             WzImageProperty imageChild = (WzImageProperty)ParentNode[path];
-            if (imageChild is WzUOLProperty)
+            if (imageChild is WzUOLProperty uolProperty)
             {
-                WzObject uolLink = ((WzUOLProperty)imageChild).LinkValue;
+                WzObject uolLink = uolProperty.LinkValue;
 
-                if (uolLink is WzCanvasProperty)
+                if (uolLink is WzCanvasProperty uolPropertyLink)
                 {
-                    canvasProperty = (WzCanvasProperty)uolLink;
+                    canvasProperty = uolPropertyLink;
                 }
                 else
                 {
                     // other unimplemented prop?
                 }
             }
-            else if (imageChild is WzCanvasProperty)
+            else if (imageChild is WzCanvasProperty property)
             {
-                canvasProperty = (WzCanvasProperty)imageChild;
+                canvasProperty = property;
             }
 
-            if (canvasProperty != null)
+            if (canvasProperty != null && graphicsDevice != null)
             {
-                Bitmap bitmap = canvasProperty.GetLinkedWzCanvasBitmap();
+                WzCanvasProperty linkImgProperty = (WzCanvasProperty)canvasProperty.GetLinkedWzImageProperty();
+                WzPngProperty pngProperty = linkImgProperty.PngProperty;
 
-                if (bitmap != null)
-                {
-                    Texture2D tex = new Texture2D(graphicsDevice, bitmap.Width, bitmap.Height, true, SurfaceFormat.Color);
-                    BitmapData data = bitmap.LockBits(new System.Drawing.Rectangle(0, 0, bitmap.Width, bitmap.Height), System.Drawing.Imaging.ImageLockMode.ReadOnly, bitmap.PixelFormat);
+                Texture2D tex = new Texture2D(graphicsDevice, pngProperty.Width, pngProperty.Height, false, linkImgProperty.PngProperty.GetXNASurfaceFormat());
 
-                    int bufferSize = data.Height * data.Stride;
+                pngProperty.ParsePng(true, tex);
 
-                    //create data buffer 
-                    byte[] bytes = new byte[bufferSize];
-
-                    // copy bitmap data into buffer
-                    Marshal.Copy(data.Scan0, bytes, 0, bytes.Length);
-
-                    // copy our buffer to the texture
-                    tex.SetData(bytes);
-
-                    // unlock the bitmap data
-                    bitmap.UnlockBits(data);
-
-                    page.rendererObject = tex;
-                    page.width = bitmap.Width;
-                    page.height = bitmap.Height;
-                }
+                page.rendererObject = tex;
+                page.width = pngProperty.Width;
+                page.height = pngProperty.Height;
             }
         }
 
